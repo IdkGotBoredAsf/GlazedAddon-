@@ -1,11 +1,11 @@
 package com.nnpg.glazed.modules.main;
 
 import com.nnpg.glazed.GlazedAddon;
-import meteordevelopment.meteorclient.events.render.Render2DEvent;
-import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
+import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.font.TextRenderer;
+import meteordevelopment.meteorclient.events.world.TickEvent;
+import net.minecraft.scoreboard.*;
 
 public class FakeStats extends Module {
     private final SettingGroup sgGeneral = settings.createGroup("General");
@@ -37,20 +37,58 @@ public class FakeStats extends Module {
         .build()
     );
 
+    private ScoreboardObjective savedObjective = null; // Original sidebar
+    private ScoreboardObjective fakeObjective = null;  // Our fake scoreboard
+
     public FakeStats() {
-        super(GlazedAddon.main, "FakeStats", "Display fake stats on scoreboard (client-side only)."); 
-        // Replace GlazedAddon.main with whatever Category your addon has, or create one
+        super(GlazedAddon.misc, "fake-stats", "Display fake stats on the scoreboard (client-side only).");
     }
 
     @EventHandler
-    private void onRender2D(Render2DEvent event) {
-        TextRenderer textRenderer = mc.textRenderer; // Fixed: use client textRenderer
-        int x = 5;
-        int y = 5;
-        int spacing = 12;
+    private void onTick(TickEvent.Pre event) {
+        if (mc.world == null) return;
 
-        textRenderer.draw(event.matrixStack, "Kills: " + kills.get(), x, y, 0xFFFFFF);
-        textRenderer.draw(event.matrixStack, "Deaths: " + deaths.get(), x, y + spacing, 0xFFFFFF);
-        textRenderer.draw(event.matrixStack, "Coins: " + coins.get(), x, y + spacing * 2, 0xFFFFFF);
+        Scoreboard scoreboard = mc.world.getScoreboard();
+        ScoreboardObjective current = scoreboard.getObjectiveForSlot(ScoreboardDisplaySlot.SIDEBAR);
+
+        // Save original scoreboard once
+        if (current != null && savedObjective == null) savedObjective = current;
+
+        // Create fake scoreboard if it doesn't exist
+        if (fakeObjective == null) {
+            fakeObjective = scoreboard.addObjective("fakeStats", ScoreboardCriterion.DUMMY, new LiteralText("Stats"), ScoreboardCriterion.RenderType.INTEGER);
+        }
+
+        // Update fake values
+        setScore(scoreboard, "Kills", kills.get());
+        setScore(scoreboard, "Deaths", deaths.get());
+        setScore(scoreboard, "Coins", coins.get());
+
+        // Display our fake scoreboard
+        scoreboard.setObjectiveSlot(ScoreboardDisplaySlot.SIDEBAR, fakeObjective);
+    }
+
+    private void setScore(Scoreboard scoreboard, String name, int value) {
+        Score score = scoreboard.getOrCreateScore(name, fakeObjective);
+        score.setScore(value);
+    }
+
+    @Override
+    public void onDeactivate() {
+        if (mc.world == null) return;
+
+        Scoreboard scoreboard = mc.world.getScoreboard();
+
+        // Restore original sidebar
+        if (savedObjective != null) {
+            scoreboard.setObjectiveSlot(ScoreboardDisplaySlot.SIDEBAR, savedObjective);
+            savedObjective = null;
+        }
+
+        // Remove fake objective so it doesn't persist
+        if (fakeObjective != null) {
+            scoreboard.removeObjective(fakeObjective);
+            fakeObjective = null;
+        }
     }
 }
