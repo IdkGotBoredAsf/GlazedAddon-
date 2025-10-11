@@ -1,12 +1,11 @@
 package com.nnpg.glazed.modules.main;
 
 import com.nnpg.glazed.GlazedAddon;
-import meteordevelopment.meteorclient.systems.modules.Module;
+import meteordevelopment.meteorclient.events.render.Render2DEvent;
 import meteordevelopment.meteorclient.settings.*;
+import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.gui.hud.InGameHud;
-
-import java.util.List;
+import net.minecraft.client.gui.DrawContext;
 
 public class FakeStats extends Module {
     private final SettingGroup sgGeneral = settings.createGroup("General");
@@ -43,17 +42,16 @@ public class FakeStats extends Module {
     }
 
     @EventHandler
-    private void onHudRender(net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback event) {
-        InGameHud hud = event.getHud();
-        if (hud == null) return;
+    private void onRender2D(Render2DEvent event) {
+        DrawContext drawContext = event.drawContext;
 
-        // Grab the scoreboard text lines and replace them client-side
-        List<String> lines = hud.getScoreboard().getLines();
-        for (int i = 0; i < lines.size(); i++) {
-            String line = lines.get(i);
-            if (line.contains("Kills:")) lines.set(i, "Kills: " + kills.get());
-            else if (line.contains("Deaths:")) lines.set(i, "Deaths: " + deaths.get());
-            else if (line.contains("Coins:")) lines.set(i, "Coins: " + coins.get());
-        }
+        // Example coordinates, adjust X/Y as needed to overlay the scoreboard
+        int x = 5;
+        int y = 5;
+        int spacing = 12;
+
+        drawContext.drawText(event.textRenderer, "Kills: " + kills.get(), x, y, 0xFFFFFF, false);
+        drawContext.drawText(event.textRenderer, "Deaths: " + deaths.get(), x, y + spacing, 0xFFFFFF, false);
+        drawContext.drawText(event.textRenderer, "Coins: " + coins.get(), x, y + spacing * 2, 0xFFFFFF, false);
     }
 }
