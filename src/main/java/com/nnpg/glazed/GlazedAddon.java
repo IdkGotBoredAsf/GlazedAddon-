@@ -1,6 +1,7 @@
 package com.nnpg.glazed;
 
 import com.nnpg.glazed.modules.esp.*;
+import com.nnpg.glazed.modules.movement.*;
 import com.nnpg.glazed.modules.main.*;
 import com.nnpg.glazed.modules.pvp.*;
 import meteordevelopment.meteorclient.addons.MeteorAddon;
@@ -17,9 +18,10 @@ import meteordevelopment.meteorclient.MeteorClient;
 
 
 public class GlazedAddon extends MeteorAddon {
-    public static final Category CATEGORY = new Category("PYRA-MAIN");
-    public static final Category esp = new Category("DONUT BASE HUNTING");
+    public static final Category CATEGORY = new Category("MAIN");
+    public static final Category esp = new Category("DONUT BASEHUNTING");
     public static final Category pvp = new Category("PYRA-PVP");
+    public static final Category movement = new Category("MOVEMENT");
 
 
 
@@ -86,6 +88,7 @@ public class GlazedAddon extends MeteorAddon {
         Modules.registerCategory(CATEGORY);
         Modules.registerCategory(esp);
         Modules.registerCategory(pvp);
+        Modules.registerCategory(movement);
 
 
         //mc.setScreen(new MyScreen(GuiThemes.get()));
