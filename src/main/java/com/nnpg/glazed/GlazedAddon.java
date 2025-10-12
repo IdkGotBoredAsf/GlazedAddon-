@@ -19,7 +19,7 @@ import meteordevelopment.meteorclient.MeteorClient;
 
 public class GlazedAddon extends MeteorAddon {
     public static final Category CATEGORY = new Category("MAIN");
-    public static final Category esp = new Category("DONUT BASEHUNTING");
+    public static final Category esp = new Category("DONUT BASE HUNTING");
     public static final Category pvp = new Category("PYRA-PVP");
     public static final Category movement = new Category("MOVEMENT");
 
