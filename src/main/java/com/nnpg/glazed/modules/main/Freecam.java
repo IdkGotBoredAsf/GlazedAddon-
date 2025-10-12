@@ -32,14 +32,14 @@ import org.joml.Vector3d;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * Freecam module – allows camera movement independent of the player.
+ * FreecamV2 – upgraded standalone freecam module for Meteor 1.21.4.
  */
-public class Freecam extends Module {
+public class FreecamV2 extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
     private final Setting<Double> speed = sgGeneral.add(new DoubleSetting.Builder()
         .name("speed")
-        .description("Your speed while in freecam.")
+        .description("Your speed while in FreecamV2.")
         .onChanged(aDouble -> speedValue = aDouble)
         .defaultValue(1.0)
         .min(0.0)
@@ -57,28 +57,28 @@ public class Freecam extends Module {
 
     private final Setting<Boolean> staySneaking = sgGeneral.add(new BoolSetting.Builder()
         .name("stay-sneaking")
-        .description("Keep player sneaking while in freecam.")
+        .description("Keep player sneaking while in FreecamV2.")
         .defaultValue(true)
         .build()
     );
 
     private final Setting<Boolean> toggleOnDamage = sgGeneral.add(new BoolSetting.Builder()
         .name("toggle-on-damage")
-        .description("Disables freecam when you take damage.")
+        .description("Disables FreecamV2 when you take damage.")
         .defaultValue(false)
         .build()
     );
 
     private final Setting<Boolean> toggleOnDeath = sgGeneral.add(new BoolSetting.Builder()
         .name("toggle-on-death")
-        .description("Disables freecam when you die.")
+        .description("Disables FreecamV2 when you die.")
         .defaultValue(false)
         .build()
     );
 
     private final Setting<Boolean> toggleOnLog = sgGeneral.add(new BoolSetting.Builder()
         .name("toggle-on-log")
-        .description("Disables freecam when you disconnect.")
+        .description("Disables FreecamV2 when you disconnect.")
         .defaultValue(true)
         .build()
     );
@@ -92,7 +92,7 @@ public class Freecam extends Module {
 
     private final Setting<Boolean> renderHands = sgGeneral.add(new BoolSetting.Builder()
         .name("show-hands")
-        .description("Render hands in freecam.")
+        .description("Render hands in FreecamV2.")
         .defaultValue(true)
         .build()
     );
@@ -106,7 +106,7 @@ public class Freecam extends Module {
 
     private final Setting<Boolean> staticView = sgGeneral.add(new BoolSetting.Builder()
         .name("static-view")
-        .description("Disable FOV and bobbing effects while in freecam.")
+        .description("Disable FOV and bobbing effects while in FreecamV2.")
         .defaultValue(true)
         .build()
     );
@@ -125,9 +125,8 @@ public class Freecam extends Module {
 
     private boolean forward, backward, right, left, up, down, isSneaking;
 
-    public Freecam() {
-        // Make sure GlazedAddon defines: public static final Category movement = new Category("Movement");
-        super(GlazedAddon.movement, "freecam", "Allows the camera to move away from the player and mine blocks.");
+    public FreecamV2() {
+        super(GlazedAddon.movement, "freecamv2", "Allows the camera to move away from the player (FreecamV2).");
     }
 
     @Override
@@ -298,12 +297,12 @@ public class Freecam extends Module {
             Entity entity = mc.world.getEntityById(packet.playerId());
             if (entity == mc.player && toggleOnDeath.get()) {
                 toggle();
-                info("Toggled off because you died.");
+                info("FreecamV2 disabled because you died.");
             }
         } else if (event.packet instanceof HealthUpdateS2CPacket packet) {
             if (mc.player.getHealth() - packet.getHealth() > 0 && toggleOnDamage.get()) {
                 toggle();
-                info("Toggled off because you took damage.");
+                info("FreecamV2 disabled because you took damage.");
             }
         }
     }
