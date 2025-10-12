@@ -64,7 +64,7 @@ public class GlazedAddon extends MeteorAddon {
         Modules.get().add(new LegitAnchorMacro());
         Modules.get().add(new AutoPotion());
         Modules.get().add(new SpawnerOrder());
-        Modules.get().add(new Freecam());
+        Modules.get().add(new FreecamV2());
         Modules.get().add(new RegionMap());
         Modules.get().add(new HoverTotem());
 
