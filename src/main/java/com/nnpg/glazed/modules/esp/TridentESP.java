@@ -35,7 +35,7 @@ public class TridentESP extends Module {
 
     private final Setting<ShapeMode> boxShapeMode = sgGeneral.add(new EnumSetting.Builder<ShapeMode>()
         .name("box-mode")
-        .description("Render mode for box around mobs.")
+        .description("Render mode for the box around mobs.")
         .defaultValue(ShapeMode.Both)
         .build()
     );
@@ -55,24 +55,33 @@ public class TridentESP extends Module {
 
     @EventHandler
     private void onRender3D(Render3DEvent event) {
+        // 🧠 Prevent crashes: skip if the game or player isn’t ready
         if (mc.player == null || mc.world == null) return;
+        if (mc.player.age < 5) return; // Wait a few ticks after world load
 
         tridentMobs.clear();
 
+        // ✅ Safely iterate through entities
         for (var entity : mc.world.getEntities()) {
             if (!(entity instanceof LivingEntity living)) continue;
 
-            // Check if holding a trident
+            // Check if holding a trident in main or off-hand
             if (living.getMainHandStack().isOf(Items.TRIDENT) || living.getOffHandStack().isOf(Items.TRIDENT)) {
                 tridentMobs.add(living);
             }
         }
 
+        // ✅ Draw ESP visuals
         for (LivingEntity mob : tridentMobs) {
-            // Draw box
-            event.renderer.box(mob.getBoundingBox(), new Color(boxColor.get()), new Color(boxColor.get()), boxShapeMode.get(), 0);
+            // Box around entity
+            event.renderer.box(mob.getBoundingBox(),
+                new Color(boxColor.get()),
+                new Color(boxColor.get()),
+                boxShapeMode.get(),
+                0
+            );
 
-            // Draw tracer to mob’s center
+            // Tracer from player to mob center
             if (tracers.get()) {
                 Vec3d mobPos = mob.getPos().add(0, mob.getHeight() / 2.0, 0);
                 Vec3d startPos = mc.player.getCameraPosVec(event.tickDelta);
