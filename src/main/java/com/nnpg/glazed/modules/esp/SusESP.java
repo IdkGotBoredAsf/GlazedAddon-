@@ -61,7 +61,7 @@ public class SusESP extends Module {
     private ExecutorService threadPool;
 
     public SusESP() {
-        super(GlazedAddon.esp, "SusESP", "Detects rotated/cobbled deepslate, long cave vines, and cover blocks.");
+        super(GlazedAddon.esp, "SusESP", "Detects rotated/cobbled deepslate, long cave vines, and tube-like cover holes.");
     }
 
     @Override
@@ -142,8 +142,8 @@ public class SusESP extends Module {
                             candidates.add(bp);
                         }
 
-                        // Cover hold ESP: 1x1 hole depth 10-100
-                        if (isCoverBlock(chunk, bp)) candidates.add(bp);
+                        // Tube-like cover hole detection: air column 1x1 surrounded by solid blocks
+                        if (isTubeCoverBlock(chunk, bp)) candidates.add(bp);
                     }
                 }
             }
@@ -166,14 +166,28 @@ public class SusESP extends Module {
         return length;
     }
 
-    private boolean isCoverBlock(WorldChunk chunk, BlockPos bp) {
+    private boolean isTubeCoverBlock(WorldChunk chunk, BlockPos bp) {
+        // Only consider air blocks
+        if (!chunk.getBlockState(bp).isAir()) return false;
+
+        // Check vertical depth
         int depth = 0;
         for (int i = 1; i <= 100; i++) {
-            BlockPos checkPos = bp.down(i);
-            if (chunk.getBlockState(checkPos).isAir()) depth++;
+            BlockPos check = bp.down(i);
+            if (chunk.getBlockState(check).isAir()) depth++;
             else break;
         }
-        return depth >= 10;
+        if (depth < 10) return false;
+
+        // Check horizontal surrounding blocks (tube: 1x1 air, all 4 sides solid)
+        BlockPos[] sides = {
+            bp.north(), bp.south(), bp.east(), bp.west()
+        };
+        for (BlockPos side : sides) {
+            if (chunk.getBlockState(side).isAir()) return false;
+        }
+
+        return true;
     }
 
     private void notifyDetection(String msg) {
