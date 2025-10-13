@@ -4,6 +4,7 @@ import com.nnpg.glazed.GlazedAddon;
 import meteordevelopment.meteorclient.events.render.Render3DEvent;
 import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.renderer.ShapeMode;
+import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.orbit.EventHandler;
@@ -25,20 +26,43 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class SusESP extends Module {
-    private final Color blockColor = new Color(180, 100, 255, 140);
+    // === Settings ===
+    private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
+    private final Setting<Boolean> tracers = sgGeneral.add(new BoolSetting.Builder()
+        .name("tracers")
+        .description("Detects SusESP.")
+        .defaultValue(true)
+        .build()
+    );
+
+    private final Setting<ShapeMode> highlightMode = sgGeneral.add(new EnumSetting.Builder<ShapeMode>()
+        .name("highlight-mode")
+        .description("Choose how blocks are highlighted.")
+        .defaultValue(ShapeMode.Both)
+        .build()
+    );
+
+    private final Setting<Integer> scanInterval = sgGeneral.add(new IntSetting.Builder()
+        .name("scan-interval")
+        .description("Delay between scans (in ticks).")
+        .defaultValue(40)
+        .min(5)
+        .sliderRange(5, 200)
+        .build()
+    );
+
+    // === Visuals ===
+    private final Color blockColor = new Color(125, 60, 152, 150); // grape purple shade
+
+    // === Internal tracking ===
     private final Map<ChunkPos, BlockPos> highlightedChunks = new ConcurrentHashMap<>();
     private final Queue<Long> recentAlerts = new ConcurrentLinkedQueue<>();
     private final Random random = new Random();
-
-    // Config
-    private final boolean drawTracers = true;
-    private final boolean sidesOnly = false;
-    private final int scanInterval = 40; // every 2 seconds (20 TPS = 1s)
     private int tickCounter = 0;
 
     public SusESP() {
-        super(GlazedAddon.esp, "SusESP", "Detects rotated deepslate and highlights a random solid block in that chunk (searches whole render distance).");
+        super(GlazedAddon.esp, "SusESP", "Detects SusESP.");
     }
 
     @Override
@@ -58,10 +82,11 @@ public class SusESP extends Module {
     @EventHandler
     private void onTick(TickEvent.Pre event) {
         if (mc.world == null || mc.player == null) return;
+
         long now = System.currentTimeMillis();
         while (!recentAlerts.isEmpty() && now - recentAlerts.peek() > 60000) recentAlerts.poll();
 
-        if (++tickCounter < scanInterval) return;
+        if (++tickCounter < scanInterval.get()) return;
         tickCounter = 0;
 
         int renderDistance = mc.options.getViewDistance().getValue();
@@ -73,6 +98,7 @@ public class SusESP extends Module {
                 int chunkZ = (playerPos.getZ() >> 4) + cz;
                 ChunkPos cpos = new ChunkPos(chunkX, chunkZ);
 
+                // only one highlight per chunk
                 if (highlightedChunks.containsKey(cpos)) continue;
 
                 WorldChunk chunk = mc.world.getChunk(chunkX, chunkZ);
@@ -113,7 +139,7 @@ public class SusESP extends Module {
         return false;
     }
 
-    // === Highlight a random *solid* block in the chunk ===
+    // === Highlight one solid block per chunk ===
     private void highlightRandomSolidBlock(WorldChunk chunk) {
         ChunkPos pos = chunk.getPos();
         ChunkSection[] sections = chunk.getSectionArray();
@@ -143,13 +169,14 @@ public class SusESP extends Module {
         }
     }
 
+    // === Sound and chat message ===
     private void notifyDetection() {
         long now = System.currentTimeMillis();
         if (recentAlerts.size() >= 5) return;
 
         mc.execute(() -> {
             if (mc.player != null) {
-                mc.player.sendMessage(Text.literal("§6[SusESP] §eRotated Deepslate Found! Solid block highlighted."), false);
+                mc.player.sendMessage(Text.literal("§6[SusESP] §dSusESP Found! §7(Chunk highlighted)"), false);
                 mc.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f));
             }
             recentAlerts.offer(now);
@@ -161,7 +188,7 @@ public class SusESP extends Module {
     private void onRender3D(Render3DEvent event) {
         if (mc.player == null || mc.world == null) return;
 
-        // Use the current crosshair target instead of player eyes
+        // Crosshair position for clean tracers
         Vec3d crosshairPos = mc.player.getCameraPosVec(1);
         HitResult hit = mc.crosshairTarget;
         if (hit instanceof BlockHitResult blockHit) {
@@ -174,12 +201,10 @@ public class SusESP extends Module {
             double distance = mc.player.getPos().distanceTo(Vec3d.ofCenter(pos));
             if (distance > mc.options.getViewDistance().getValue() * 16) continue;
 
-            ShapeMode mode = sidesOnly ? ShapeMode.Lines : ShapeMode.Both;
-            event.renderer.box(new Box(pos), blockColor, blockColor, mode, 2);
+            event.renderer.box(new Box(pos), blockColor, blockColor, highlightMode.get(), 2);
 
-            if (drawTracers) {
+            if (tracers.get()) {
                 Vec3d blockCenter = Vec3d.ofCenter(pos);
-                // Line from crosshair (not player eyes)
                 event.renderer.line(
                     crosshairPos.x, crosshairPos.y, crosshairPos.z,
                     blockCenter.x, blockCenter.y, blockCenter.z,
