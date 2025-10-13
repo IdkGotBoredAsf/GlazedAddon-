@@ -170,8 +170,7 @@ public class SusESP extends Module {
                 for (int y = 0; y < 256; y++) {
                     BlockPos start = new BlockPos(pos.getStartX() + x, y, pos.getStartZ() + z);
                     BlockState state = mc.world.getBlockState(start);
-                    // Fixed line: check against Blocks.GLOW_BERRY_VINE
-                    if (state.getBlock() == Blocks.GLOW_BERRY_VINE) {
+                    if (state.getBlock() == Blocks.GLOW_BERRY_VINE) { // fixed for 1.21.4
                         int length = 1;
                         BlockPos check = start.up();
                         while (mc.world.getBlockState(check).getBlock() == Blocks.GLOW_BERRY_VINE) {
