@@ -116,7 +116,7 @@ public class SusESP extends Module {
         for (ChunkSection section : chunk.getSectionArray()) {
             if (section == null || section.isEmpty()) continue;
 
-            int sectionBaseY = chunk.getBottomY() + Arrays.asList(chunk.getSectionArray()).indexOf(section) * 16;
+            int sectionBaseY = section.getYOffset();
             int startY = Math.max(sectionBaseY, -64);
             int endY = Math.min(sectionBaseY + 15, 45);
 
@@ -140,13 +140,14 @@ public class SusESP extends Module {
                             candidates.add(bp);
                         }
 
-                        // Tube-like cover hole detection: air column 1x1 surrounded by solid blocks
+                        // Tube-like cover hole detection: 1x1 air column surrounded by solid blocks
                         if (isTubeCoverBlock(chunk, bp)) candidates.add(bp);
                     }
                 }
             }
         }
 
+        // Random ESP per chunk if any candidate exists
         if (!candidates.isEmpty()) {
             BlockPos selected = candidates.get(random.nextInt(candidates.size()));
             highlightedChunks.put(chunk.getPos(), selected);
@@ -165,10 +166,9 @@ public class SusESP extends Module {
     }
 
     private boolean isTubeCoverBlock(WorldChunk chunk, BlockPos bp) {
-        // Only consider air blocks
         if (!chunk.getBlockState(bp).isAir()) return false;
 
-        // Check vertical depth 10–100
+        // Vertical depth 10–100
         int depth = 0;
         for (int i = 1; i <= 100; i++) {
             BlockPos check = bp.down(i);
@@ -177,14 +177,13 @@ public class SusESP extends Module {
         }
         if (depth < 10) return false;
 
-        // Check horizontal surrounding blocks (tube: 1x1 air, all 4 sides solid)
+        // Horizontal surrounding blocks: require at least 3 solid sides
+        int solidSides = 0;
         BlockPos[] sides = { bp.north(), bp.south(), bp.east(), bp.west() };
         for (BlockPos side : sides) {
-            BlockState sideState = chunk.getBlockState(side);
-            if (sideState.isAir()) return false;
+            if (!chunk.getBlockState(side).isAir()) solidSides++;
         }
-
-        return true;
+        return solidSides >= 3;
     }
 
     private void notifyDetection(String msg) {
