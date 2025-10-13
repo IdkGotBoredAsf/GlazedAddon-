@@ -11,6 +11,7 @@ import meteordevelopment.orbit.EventHandler;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.block.GlowBerryVineBlock;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.state.property.Properties;
@@ -26,7 +27,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class SusESP extends Module {
-    // === Settings ===
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
     private final Setting<Boolean> tracers = sgGeneral.add(new BoolSetting.Builder()
@@ -52,10 +52,7 @@ public class SusESP extends Module {
         .build()
     );
 
-    // === Visuals ===
-    private final Color blockColor = new Color(125, 60, 152, 150); // grape purple shade
-
-    // === Internal tracking ===
+    private final Color blockColor = new Color(125, 60, 152, 150);
     private final Map<ChunkPos, BlockPos> highlightedChunks = new ConcurrentHashMap<>();
     private final Queue<Long> recentAlerts = new ConcurrentLinkedQueue<>();
     private final Random random = new Random();
@@ -78,7 +75,6 @@ public class SusESP extends Module {
         recentAlerts.clear();
     }
 
-    // === Main tick loop ===
     @EventHandler
     private void onTick(TickEvent.Pre event) {
         if (mc.world == null || mc.player == null) return;
@@ -98,7 +94,6 @@ public class SusESP extends Module {
                 int chunkZ = (playerPos.getZ() >> 4) + cz;
                 ChunkPos cpos = new ChunkPos(chunkX, chunkZ);
 
-                // only one highlight per chunk
                 if (highlightedChunks.containsKey(cpos)) continue;
 
                 WorldChunk chunk = mc.world.getChunk(chunkX, chunkZ);
@@ -117,7 +112,6 @@ public class SusESP extends Module {
         }
     }
 
-    // === Detect sideways or upside-down deepslate ===
     private boolean containsRotatedDeepslate(WorldChunk chunk) {
         for (ChunkSection section : chunk.getSectionArray()) {
             if (section == null || section.isEmpty()) continue;
@@ -144,7 +138,6 @@ public class SusESP extends Module {
         return false;
     }
 
-    // === Highlight one solid block per chunk ===
     private void highlightRandomSolidBlock(WorldChunk chunk) {
         ChunkPos pos = chunk.getPos();
         List<BlockPos> solidBlocks = new ArrayList<>();
@@ -171,24 +164,22 @@ public class SusESP extends Module {
         }
     }
 
-    // === Detect glow berry vines 10–26 blocks long ===
     private BlockPos detectGlowBerryVine(WorldChunk chunk) {
         ChunkPos pos = chunk.getPos();
         for (int x = 0; x < 16; x++) {
             for (int z = 0; z < 16; z++) {
-                for (int y = 0; y < 256; y++) { // full height
+                for (int y = 0; y < 256; y++) {
                     BlockPos start = new BlockPos(pos.getStartX() + x, y, pos.getStartZ() + z);
-                    if (mc.world.getBlockState(start).getBlock() == Blocks.GLOW_BERRY_VINES) {
+                    BlockState state = mc.world.getBlockState(start);
+                    if (state.getBlock() instanceof GlowBerryVineBlock) {
                         int length = 1;
                         BlockPos check = start.up();
-                        while (mc.world.getBlockState(check).getBlock() == Blocks.GLOW_BERRY_VINES) {
+                        while (mc.world.getBlockState(check).getBlock() instanceof GlowBerryVineBlock) {
                             length++;
                             check = check.up();
                             if (length > 26) break;
                         }
-                        if (length >= 10 && length <= 26) {
-                            return start;
-                        }
+                        if (length >= 10 && length <= 26) return start;
                     }
                 }
             }
@@ -196,7 +187,6 @@ public class SusESP extends Module {
         return null;
     }
 
-    // === Sound and chat message ===
     private void notifyDetection(String msg) {
         long now = System.currentTimeMillis();
         if (recentAlerts.size() >= 5) return;
@@ -210,7 +200,6 @@ public class SusESP extends Module {
         });
     }
 
-    // === Render highlights and tracers ===
     @EventHandler
     private void onRender3D(Render3DEvent event) {
         if (mc.player == null || mc.world == null) return;
