@@ -8,6 +8,7 @@ import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.orbit.EventHandler;
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.sound.PositionedSoundInstance;
@@ -23,6 +24,8 @@ import net.minecraft.world.chunk.WorldChunk;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class SusESP extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -50,23 +53,15 @@ public class SusESP extends Module {
         .build()
     );
 
-    private final Setting<Integer> minVineLength = sgGeneral.add(new IntSetting.Builder()
-        .name("min-vine-length")
-        .description("Minimum glow berry vine length to detect")
-        .defaultValue(10)
-        .min(10)
-        .max(50)
-        .build()
-    );
-
     private final Color blockColor = new Color(125, 60, 152, 150);
     private final Map<ChunkPos, BlockPos> highlightedChunks = new ConcurrentHashMap<>();
     private final Queue<Long> recentAlerts = new ConcurrentLinkedQueue<>();
     private int tickCounter = 0;
     private final Random random = new Random();
+    private ExecutorService threadPool;
 
     public SusESP() {
-        super(GlazedAddon.esp, "SusESP", "Detects rotated deepslate and long glow berry vines.");
+        super(GlazedAddon.esp, "SusESP", "Detects rotated/cobbled deepslate, long cave vines, and cover blocks.");
     }
 
     @Override
@@ -74,12 +69,17 @@ public class SusESP extends Module {
         highlightedChunks.clear();
         recentAlerts.clear();
         tickCounter = 0;
+        threadPool = Executors.newFixedThreadPool(2);
     }
 
     @Override
     public void onDeactivate() {
         highlightedChunks.clear();
         recentAlerts.clear();
+        if (threadPool != null) {
+            threadPool.shutdownNow();
+            threadPool = null;
+        }
     }
 
     @EventHandler
@@ -104,96 +104,76 @@ public class SusESP extends Module {
                 if (highlightedChunks.containsKey(cpos)) continue;
 
                 WorldChunk chunk = mc.world.getChunk(chunkX, chunkZ);
-                if (chunk != null) {
-                    if (containsRotatedDeepslate(chunk)) {
-                        highlightRandomSolidBlock(chunk);
-                    } else {
-                        BlockPos vineBlock = detectGlowBerryVine(chunk);
-                        if (vineBlock != null) {
-                            highlightedChunks.put(cpos, vineBlock);
-                            notifyDetection("Glow Berry Vine Detected! Chunk highlighted.");
-                        }
-                    }
-                }
+                if (chunk != null) threadPool.submit(() -> scanChunk(chunk));
             }
         }
     }
 
-    private boolean containsRotatedDeepslate(WorldChunk chunk) {
+    private void scanChunk(WorldChunk chunk) {
+        ChunkPos pos = chunk.getPos();
+        List<BlockPos> candidates = new ArrayList<>();
+
         for (ChunkSection section : chunk.getSectionArray()) {
             if (section == null || section.isEmpty()) continue;
 
+            int sectionBaseY = chunk.getBottomY() + Arrays.asList(chunk.getSectionArray()).indexOf(section) * 16;
+            int startY = Math.max(sectionBaseY, -64);
+            int endY = Math.min(sectionBaseY + 16, 45);
+
             for (int x = 0; x < 16; x++) {
-                for (int y = 0; y < 16; y++) {
+                for (int y = startY; y <= endY; y++) {
                     for (int z = 0; z < 16; z++) {
-                        BlockState state = section.getBlockState(x, y, z);
-                        if (state.isOf(Blocks.DEEPSLATE)) {
-                            if (state.contains(Properties.AXIS)) {
-                                Direction.Axis axis = state.get(Properties.AXIS);
-                                if (axis != Direction.Axis.Y) return true;
-                            }
-                            if (state.contains(Properties.FACING)) {
-                                Direction facing = state.get(Properties.FACING);
-                                if (facing != Direction.UP) return true;
+                        BlockPos bp = new BlockPos(pos.getStartX() + x, y, pos.getStartZ() + z);
+                        BlockState state = chunk.getBlockState(bp);
+                        Block block = state.getBlock();
+
+                        if (state.isAir()) continue;
+
+                        // Rotated DEEPSLATE / COBBLED_DEEPSLATE / DEEPSLATE above Y8
+                        if ((block == Blocks.DEEPSLATE || block == Blocks.COBBLED_DEEPSLATE) && y > 8) {
+                            if ((state.contains(Properties.AXIS) && state.get(Properties.AXIS) != Direction.Axis.Y)
+                             || (state.contains(Properties.FACING) && state.get(Properties.FACING) != Direction.UP)) {
+                                candidates.add(bp);
                             }
                         }
-                    }
-                }
-            }
-        }
-        return false;
-    }
 
-    private void highlightRandomSolidBlock(WorldChunk chunk) {
-        ChunkPos pos = chunk.getPos();
-        List<BlockPos> solidBlocks = new ArrayList<>();
+                        // Cave vine detection (length >= 18)
+                        if ((block == Blocks.CAVE_VINES || block == Blocks.CAVE_VINES_PLANT) && detectVineLength(chunk, bp) >= 18) {
+                            candidates.add(bp);
+                        }
 
-        for (ChunkSection section : chunk.getSectionArray()) {
-            if (section == null || section.isEmpty()) continue;
-            int baseY = chunk.getBottomY() + Arrays.asList(chunk.getSectionArray()).indexOf(section) * 16;
-
-            for (int x = 0; x < 16; x++) {
-                for (int y = 0; y < 16; y++) {
-                    for (int z = 0; z < 16; z++) {
-                        BlockPos blockPos = new BlockPos(pos.getStartX() + x, baseY + y, pos.getStartZ() + z);
-                        if (!chunk.getBlockState(blockPos).isAir()) solidBlocks.add(blockPos);
+                        // Cover hold ESP: 1x1 hole depth 10-100
+                        if (isCoverBlock(chunk, bp)) candidates.add(bp);
                     }
                 }
             }
         }
 
-        if (!solidBlocks.isEmpty()) {
-            highlightedChunks.put(pos, solidBlocks.get(random.nextInt(solidBlocks.size())));
-            notifyDetection("Rotated Deepslate Found! Chunk highlighted.");
+        if (!candidates.isEmpty()) {
+            BlockPos selected = candidates.get(random.nextInt(candidates.size()));
+            highlightedChunks.put(chunk.getPos(), selected);
+            notifyDetection("Sus Block Detected! Chunk highlighted.");
         }
     }
 
-    private BlockPos detectGlowBerryVine(WorldChunk chunk) {
-        ChunkPos pos = chunk.getPos();
-        int bottomY = mc.world.getBottomY();
-        int topY = bottomY + mc.world.getHeight(); // <-- FIXED HERE
-
-        for (int x = 0; x < 16; x++) {
-            for (int z = 0; z < 16; z++) {
-                for (int y = bottomY; y < topY; y++) {
-                    BlockPos start = new BlockPos(pos.getStartX() + x, y, pos.getStartZ() + z);
-                    BlockState state = chunk.getBlockState(start);
-
-                    if (state.isOf(Blocks.CAVE_VINES) || state.isOf(Blocks.CAVE_VINES_PLANT)) {
-                        int length = 1;
-                        BlockPos check = start.up();
-                        while ((chunk.getBlockState(check).isOf(Blocks.CAVE_VINES) || chunk.getBlockState(check).isOf(Blocks.CAVE_VINES_PLANT)) && length <= 26) {
-                            length++;
-                            check = check.up();
-                        }
-
-                        if (length >= 10 && length <= 26) return start;
-                    }
-                }
-            }
+    private int detectVineLength(WorldChunk chunk, BlockPos start) {
+        int length = 1;
+        BlockPos check = start.up();
+        while ((chunk.getBlockState(check).isOf(Blocks.CAVE_VINES) || chunk.getBlockState(check).isOf(Blocks.CAVE_VINES_PLANT)) && length < 64) {
+            length++;
+            check = check.up();
         }
+        return length;
+    }
 
-        return null;
+    private boolean isCoverBlock(WorldChunk chunk, BlockPos bp) {
+        int depth = 0;
+        for (int i = 1; i <= 100; i++) {
+            BlockPos checkPos = bp.down(i);
+            if (chunk.getBlockState(checkPos).isAir()) depth++;
+            else break;
+        }
+        return depth >= 10;
     }
 
     private void notifyDetection(String msg) {
