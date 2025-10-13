@@ -170,10 +170,12 @@ public class SusESP extends Module {
 
     private BlockPos detectGlowBerryVine(WorldChunk chunk) {
         ChunkPos pos = chunk.getPos();
+        int bottomY = mc.world.getBottomY();
+        int topY = bottomY + mc.world.getHeight(); // <-- FIXED HERE
 
         for (int x = 0; x < 16; x++) {
             for (int z = 0; z < 16; z++) {
-                for (int y = mc.world.getBottomY(); y < mc.world.getTopY(); y++) {
+                for (int y = bottomY; y < topY; y++) {
                     BlockPos start = new BlockPos(pos.getStartX() + x, y, pos.getStartZ() + z);
                     BlockState state = chunk.getBlockState(start);
 
