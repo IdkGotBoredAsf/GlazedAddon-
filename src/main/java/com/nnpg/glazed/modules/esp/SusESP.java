@@ -31,7 +31,7 @@ public class SusESP extends Module {
 
     private final Setting<Boolean> tracers = sgGeneral.add(new BoolSetting.Builder()
         .name("tracers")
-        .description("Detects SusESP.")
+        .description("Draw tracers to detected blocks.")
         .defaultValue(true)
         .build()
     );
@@ -62,7 +62,7 @@ public class SusESP extends Module {
     private int tickCounter = 0;
 
     public SusESP() {
-        super(GlazedAddon.esp, "SusESP", "Detects SusESP.");
+        super(GlazedAddon.esp, "SusESP", "Detects rotated deepslate and long glow berry vines (10–26 blocks).");
     }
 
     @Override
@@ -102,8 +102,16 @@ public class SusESP extends Module {
                 if (highlightedChunks.containsKey(cpos)) continue;
 
                 WorldChunk chunk = mc.world.getChunk(chunkX, chunkZ);
-                if (chunk != null && containsRotatedDeepslate(chunk)) {
-                    highlightRandomSolidBlock(chunk);
+                if (chunk != null) {
+                    if (containsRotatedDeepslate(chunk)) {
+                        highlightRandomSolidBlock(chunk);
+                    } else {
+                        BlockPos vineBlock = detectGlowBerryVine(chunk);
+                        if (vineBlock != null) {
+                            highlightedChunks.put(cpos, vineBlock);
+                            notifyDetection("Glow Berry Vine Detected! Chunk highlighted.");
+                        }
+                    }
                 }
             }
         }
@@ -111,9 +119,7 @@ public class SusESP extends Module {
 
     // === Detect sideways or upside-down deepslate ===
     private boolean containsRotatedDeepslate(WorldChunk chunk) {
-        ChunkSection[] sections = chunk.getSectionArray();
-
-        for (ChunkSection section : sections) {
+        for (ChunkSection section : chunk.getSectionArray()) {
             if (section == null || section.isEmpty()) continue;
 
             for (int x = 0; x < 16; x++) {
@@ -121,7 +127,6 @@ public class SusESP extends Module {
                     for (int z = 0; z < 16; z++) {
                         BlockState state = section.getBlockState(x, y, z);
                         Block block = state.getBlock();
-
                         if (block == Blocks.DEEPSLATE) {
                             if (state.contains(Properties.AXIS)) {
                                 Direction.Axis axis = state.get(Properties.AXIS);
@@ -142,14 +147,11 @@ public class SusESP extends Module {
     // === Highlight one solid block per chunk ===
     private void highlightRandomSolidBlock(WorldChunk chunk) {
         ChunkPos pos = chunk.getPos();
-        ChunkSection[] sections = chunk.getSectionArray();
         List<BlockPos> solidBlocks = new ArrayList<>();
 
-        for (int sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
-            ChunkSection section = sections[sectionIndex];
+        for (ChunkSection section : chunk.getSectionArray()) {
             if (section == null || section.isEmpty()) continue;
-
-            int baseY = chunk.getBottomY() + sectionIndex * 16;
+            int baseY = chunk.getBottomY() + Arrays.asList(chunk.getSectionArray()).indexOf(section) * 16;
 
             for (int x = 0; x < 16; x++) {
                 for (int y = 0; y < 16; y++) {
@@ -165,18 +167,43 @@ public class SusESP extends Module {
         if (!solidBlocks.isEmpty()) {
             BlockPos selected = solidBlocks.get(random.nextInt(solidBlocks.size()));
             highlightedChunks.put(pos, selected);
-            notifyDetection();
+            notifyDetection("Rotated Deepslate Found! Chunk highlighted.");
         }
     }
 
+    // === Detect glow berry vines 10–26 blocks long ===
+    private BlockPos detectGlowBerryVine(WorldChunk chunk) {
+        ChunkPos pos = chunk.getPos();
+        for (int x = 0; x < 16; x++) {
+            for (int z = 0; z < 16; z++) {
+                for (int y = 0; y < 256; y++) { // full height
+                    BlockPos start = new BlockPos(pos.getStartX() + x, y, pos.getStartZ() + z);
+                    if (mc.world.getBlockState(start).getBlock() == Blocks.GLOW_BERRY_VINE) {
+                        int length = 1;
+                        BlockPos check = start.up();
+                        while (mc.world.getBlockState(check).getBlock() == Blocks.GLOW_BERRY_VINE) {
+                            length++;
+                            check = check.up();
+                            if (length > 26) break;
+                        }
+                        if (length >= 10 && length <= 26) {
+                            return start;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     // === Sound and chat message ===
-    private void notifyDetection() {
+    private void notifyDetection(String msg) {
         long now = System.currentTimeMillis();
         if (recentAlerts.size() >= 5) return;
 
         mc.execute(() -> {
             if (mc.player != null) {
-                mc.player.sendMessage(Text.literal("§6[SusESP] §dSusESP Found! §7(Chunk highlighted)"), false);
+                mc.player.sendMessage(Text.literal("§6[SusESP] §d" + msg), false);
                 mc.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f));
             }
             recentAlerts.offer(now);
@@ -188,16 +215,14 @@ public class SusESP extends Module {
     private void onRender3D(Render3DEvent event) {
         if (mc.player == null || mc.world == null) return;
 
-        // Crosshair position for clean tracers
         Vec3d crosshairPos = mc.player.getCameraPosVec(1);
         HitResult hit = mc.crosshairTarget;
-        if (hit instanceof BlockHitResult blockHit) {
-            crosshairPos = blockHit.getPos();
-        }
+        if (hit instanceof BlockHitResult blockHit) crosshairPos = blockHit.getPos();
 
         for (Map.Entry<ChunkPos, BlockPos> entry : highlightedChunks.entrySet()) {
             BlockPos pos = entry.getValue();
-            if (mc.world.getBlockState(pos).isAir()) continue; // skip air blocks
+            if (mc.world.getBlockState(pos).isAir()) continue;
+
             double distance = mc.player.getPos().distanceTo(Vec3d.ofCenter(pos));
             if (distance > mc.options.getViewDistance().getValue() * 16) continue;
 
