@@ -50,8 +50,8 @@ public class SusESP extends Module {
     private void onRender3D(Render3DEvent event) {
         if (mc.world == null) return;
 
-        // Iterate loaded chunks properly in 1.21
-        for (WorldChunk chunk : mc.world.getChunkManager().getLoadedChunksIterable()) {
+        // Fixed: iterate chunks properly
+        for (WorldChunk chunk : mc.world.getChunkManager().getLoadedChunks()) {
             ChunkPos pos = chunk.getPos();
             if (!espTargets.containsKey(pos)) {
                 BlockPos found = findRotatedDeepslate(chunk);
@@ -72,11 +72,11 @@ public class SusESP extends Module {
         for (BlockPos bp : espTargets.values()) {
             if (bp == null) continue;
 
-            // Draw ESP box using Meteor's RenderUtils
+            // Fixed: cast tracerThickness to float
             RenderUtils.box(matrices, new Box(bp), r, g, b, a, (float) tracerThickness.get());
 
-            // Draw tracers
-            if (showTracers.get()) drawTracer(matrices, bp, r, g, b, a);
+            if (showTracers.get())
+                drawTracer(matrices, bp, r, g, b, a);
         }
     }
 
@@ -109,7 +109,7 @@ public class SusESP extends Module {
         Vec3d camPos = mc.gameRenderer.getCamera().getPos();
         Vec3d blockCenter = Vec3d.ofCenter(pos);
 
-        // Use Meteor RenderUtils line for tracers
+        // Fixed: cast tracerThickness to float
         RenderUtils.line(matrices, camPos, blockCenter, r, g, b, a, (float) tracerThickness.get());
     }
 }
