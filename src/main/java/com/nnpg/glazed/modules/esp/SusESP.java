@@ -14,6 +14,8 @@ import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.state.property.Properties;
 import net.minecraft.text.Text;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.*;
 import net.minecraft.world.chunk.ChunkSection;
 import net.minecraft.world.chunk.WorldChunk;
@@ -36,7 +38,7 @@ public class SusESP extends Module {
     private int tickCounter = 0;
 
     public SusESP() {
-        super(GlazedAddon.esp, "SusESP", "Detects rotated deepslate and highlights a random block in that chunk (searches whole render distance).");
+        super(GlazedAddon.esp, "SusESP", "Detects rotated deepslate and highlights a random solid block in that chunk (searches whole render distance).");
     }
 
     @Override
@@ -65,7 +67,6 @@ public class SusESP extends Module {
         int renderDistance = mc.options.getViewDistance().getValue();
         BlockPos playerPos = mc.player.getBlockPos();
 
-        // Scan all chunks in render distance
         for (int cx = -renderDistance; cx <= renderDistance; cx++) {
             for (int cz = -renderDistance; cz <= renderDistance; cz++) {
                 int chunkX = (playerPos.getX() >> 4) + cx;
@@ -76,7 +77,7 @@ public class SusESP extends Module {
 
                 WorldChunk chunk = mc.world.getChunk(chunkX, chunkZ);
                 if (chunk != null && containsRotatedDeepslate(chunk)) {
-                    highlightRandomBlock(chunk);
+                    highlightRandomSolidBlock(chunk);
                 }
             }
         }
@@ -86,8 +87,7 @@ public class SusESP extends Module {
     private boolean containsRotatedDeepslate(WorldChunk chunk) {
         ChunkSection[] sections = chunk.getSectionArray();
 
-        for (int sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
-            ChunkSection section = sections[sectionIndex];
+        for (ChunkSection section : sections) {
             if (section == null || section.isEmpty()) continue;
 
             for (int x = 0; x < 16; x++) {
@@ -113,11 +113,11 @@ public class SusESP extends Module {
         return false;
     }
 
-    // === Highlight a random block in the chunk ===
-    private void highlightRandomBlock(WorldChunk chunk) {
+    // === Highlight a random *solid* block in the chunk ===
+    private void highlightRandomSolidBlock(WorldChunk chunk) {
         ChunkPos pos = chunk.getPos();
         ChunkSection[] sections = chunk.getSectionArray();
-        List<BlockPos> blocks = new ArrayList<>();
+        List<BlockPos> solidBlocks = new ArrayList<>();
 
         for (int sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
             ChunkSection section = sections[sectionIndex];
@@ -128,14 +128,16 @@ public class SusESP extends Module {
             for (int x = 0; x < 16; x++) {
                 for (int y = 0; y < 16; y++) {
                     for (int z = 0; z < 16; z++) {
-                        blocks.add(new BlockPos(pos.getStartX() + x, baseY + y, pos.getStartZ() + z));
+                        BlockPos blockPos = new BlockPos(pos.getStartX() + x, baseY + y, pos.getStartZ() + z);
+                        BlockState state = chunk.getBlockState(blockPos);
+                        if (!state.isAir()) solidBlocks.add(blockPos);
                     }
                 }
             }
         }
 
-        if (!blocks.isEmpty()) {
-            BlockPos selected = blocks.get(random.nextInt(blocks.size()));
+        if (!solidBlocks.isEmpty()) {
+            BlockPos selected = solidBlocks.get(random.nextInt(solidBlocks.size()));
             highlightedChunks.put(pos, selected);
             notifyDetection();
         }
@@ -147,7 +149,7 @@ public class SusESP extends Module {
 
         mc.execute(() -> {
             if (mc.player != null) {
-                mc.player.sendMessage(Text.literal("§6[SusESP] §eRotated Deepslate Found! Random block highlighted."), false);
+                mc.player.sendMessage(Text.literal("§6[SusESP] §eRotated Deepslate Found! Solid block highlighted."), false);
                 mc.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f));
             }
             recentAlerts.offer(now);
@@ -157,12 +159,18 @@ public class SusESP extends Module {
     // === Render highlights and tracers ===
     @EventHandler
     private void onRender3D(Render3DEvent event) {
-        if (mc.player == null) return;
+        if (mc.player == null || mc.world == null) return;
 
-        Vec3d playerEyes = mc.player.getCameraPosVec(1);
+        // Use the current crosshair target instead of player eyes
+        Vec3d crosshairPos = mc.player.getCameraPosVec(1);
+        HitResult hit = mc.crosshairTarget;
+        if (hit instanceof BlockHitResult blockHit) {
+            crosshairPos = blockHit.getPos();
+        }
 
         for (Map.Entry<ChunkPos, BlockPos> entry : highlightedChunks.entrySet()) {
             BlockPos pos = entry.getValue();
+            if (mc.world.getBlockState(pos).isAir()) continue; // skip air blocks
             double distance = mc.player.getPos().distanceTo(Vec3d.ofCenter(pos));
             if (distance > mc.options.getViewDistance().getValue() * 16) continue;
 
@@ -171,8 +179,9 @@ public class SusESP extends Module {
 
             if (drawTracers) {
                 Vec3d blockCenter = Vec3d.ofCenter(pos);
+                // Line from crosshair (not player eyes)
                 event.renderer.line(
-                    playerEyes.x, playerEyes.y, playerEyes.z,
+                    crosshairPos.x, crosshairPos.y, crosshairPos.z,
                     blockCenter.x, blockCenter.y, blockCenter.z,
                     blockColor
                 );
