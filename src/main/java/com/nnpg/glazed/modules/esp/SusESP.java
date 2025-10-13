@@ -118,7 +118,7 @@ public class SusESP extends Module {
 
             int sectionBaseY = chunk.getBottomY() + Arrays.asList(chunk.getSectionArray()).indexOf(section) * 16;
             int startY = Math.max(sectionBaseY, -64);
-            int endY = Math.min(sectionBaseY + 16, 45);
+            int endY = Math.min(sectionBaseY + 15, 45);
 
             for (int x = 0; x < 16; x++) {
                 for (int y = startY; y <= endY; y++) {
@@ -126,8 +126,6 @@ public class SusESP extends Module {
                         BlockPos bp = new BlockPos(pos.getStartX() + x, y, pos.getStartZ() + z);
                         BlockState state = chunk.getBlockState(bp);
                         Block block = state.getBlock();
-
-                        if (state.isAir()) continue;
 
                         // Rotated DEEPSLATE / COBBLED_DEEPSLATE / DEEPSLATE above Y8
                         if ((block == Blocks.DEEPSLATE || block == Blocks.COBBLED_DEEPSLATE) && y > 8) {
@@ -159,7 +157,7 @@ public class SusESP extends Module {
     private int detectVineLength(WorldChunk chunk, BlockPos start) {
         int length = 1;
         BlockPos check = start.up();
-        while ((chunk.getBlockState(check).isOf(Blocks.CAVE_VINES) || chunk.getBlockState(check).isOf(Blocks.CAVE_VINES_PLANT)) && length < 64) {
+        while (check.getY() <= 319 && (chunk.getBlockState(check).isOf(Blocks.CAVE_VINES) || chunk.getBlockState(check).isOf(Blocks.CAVE_VINES_PLANT))) {
             length++;
             check = check.up();
         }
@@ -170,7 +168,7 @@ public class SusESP extends Module {
         // Only consider air blocks
         if (!chunk.getBlockState(bp).isAir()) return false;
 
-        // Check vertical depth
+        // Check vertical depth 10–100
         int depth = 0;
         for (int i = 1; i <= 100; i++) {
             BlockPos check = bp.down(i);
@@ -180,11 +178,10 @@ public class SusESP extends Module {
         if (depth < 10) return false;
 
         // Check horizontal surrounding blocks (tube: 1x1 air, all 4 sides solid)
-        BlockPos[] sides = {
-            bp.north(), bp.south(), bp.east(), bp.west()
-        };
+        BlockPos[] sides = { bp.north(), bp.south(), bp.east(), bp.west() };
         for (BlockPos side : sides) {
-            if (chunk.getBlockState(side).isAir()) return false;
+            BlockState sideState = chunk.getBlockState(side);
+            if (sideState.isAir()) return false;
         }
 
         return true;
