@@ -53,7 +53,7 @@ public class SusESP extends Module {
         .build()
     );
 
-    private final Color blockColor = new Color(125, 60, 152, 150);
+    private final Color blockColor = new Color(125, 60, 152, 150); // Purple grape shade
     private final Map<ChunkPos, BlockPos> highlightedChunks = new ConcurrentHashMap<>();
     private final Queue<Long> recentAlerts = new ConcurrentLinkedQueue<>();
     private int tickCounter = 0;
@@ -149,7 +149,7 @@ public class SusESP extends Module {
             }
         }
 
-        // Random ESP per chunk if any candidate exists
+        // Pick one random block per chunk if candidates exist
         if (!candidates.isEmpty()) {
             BlockPos selected = candidates.get(random.nextInt(candidates.size()));
             highlightedChunks.put(chunk.getPos(), selected);
