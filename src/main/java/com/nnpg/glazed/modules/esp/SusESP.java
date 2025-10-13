@@ -17,8 +17,6 @@ import java.awt.*;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static meteordevelopment.meteorclient.utils.render.color.ColorUtils.*;
-
 public class SusESP extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
@@ -31,6 +29,7 @@ public class SusESP extends Module {
 
     private final Setting<Boolean> showTracers = sgGeneral.add(new BoolSetting.Builder()
         .name("show-tracers")
+        .description("Draws a tracer from crosshair to detected blocks.")
         .defaultValue(true)
         .build()
     );
@@ -59,7 +58,6 @@ public class SusESP extends Module {
             if (!espTargets.containsKey(pos)) {
                 BlockPos found = findRotatedDeepslate(chunk);
                 if (found != null) {
-                    // Choose a random block in this chunk
                     BlockPos random = pickRandomBlockInChunk(pos);
                     espTargets.put(pos, random);
                 }
@@ -98,8 +96,8 @@ public class SusESP extends Module {
                     BlockPos pos = new BlockPos(startX + x, y, startZ + z);
                     Block block = mc.world.getBlockState(pos).getBlock();
                     if (block == Blocks.DEEPSLATE) {
-                        // Detect rotation-like state (pseudo check since rotation is stored in BlockState properties)
-                        if (mc.world.getBlockState(pos).getProperties().toString().contains("axis")) {
+                        // Heuristic rotation check: deepslate with directional properties
+                        if (mc.world.getBlockState(pos).getEntries().toString().contains("axis")) {
                             return pos;
                         }
                     }
@@ -112,18 +110,19 @@ public class SusESP extends Module {
     private BlockPos pickRandomBlockInChunk(ChunkPos chunkPos) {
         int x = ThreadLocalRandom.current().nextInt(16) + chunkPos.getStartX();
         int z = ThreadLocalRandom.current().nextInt(16) + chunkPos.getStartZ();
-        int y = mc.world.getTopY(); // somewhere near surface
+        int y = Math.min(mc.world.getTopY(), 255);
         return new BlockPos(x, y, z);
     }
 
     private void drawTracerToBlock(BlockPos pos, float r, float g, float b, float a) {
         Vec3d camPos = mc.gameRenderer.getCamera().getPos();
         Vec3d blockCenter = Vec3d.ofCenter(pos);
-        Vec3d crosshair = camPos.add(mc.player.getRotationVector().multiply(1));
+        Vec3d crosshair = camPos.add(mc.player.getRotationVector().multiply(1.0));
 
         Tessellator tess = Tessellator.getInstance();
         BufferBuilder buffer = tess.getBuffer();
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.lineWidth((float) tracerThickness.get());
 
         buffer.begin(VertexFormat.DrawMode.LINES, VertexFormats.POSITION_COLOR);
         buffer.vertex(crosshair.x, crosshair.y, crosshair.z).color(r, g, b, a).next();
@@ -131,7 +130,7 @@ public class SusESP extends Module {
         tess.draw();
     }
 
-    // Simple internal helper class for outlines
+    // Internal helper for crisp outlines
     private static class RenderUtils {
         static void drawBoxOutline(Box box, float r, float g, float b, float a, float thickness) {
             RenderSystem.lineWidth(thickness);
@@ -144,7 +143,7 @@ public class SusESP extends Module {
             double x1 = box.minX, y1 = box.minY, z1 = box.minZ;
             double x2 = box.maxX, y2 = box.maxY, z2 = box.maxZ;
 
-            // 12 edges of a box
+            // Draw box edges
             add(buffer, x1, y1, z1, x2, y1, z1, r, g, b, a);
             add(buffer, x1, y1, z1, x1, y2, z1, r, g, b, a);
             add(buffer, x1, y1, z1, x1, y1, z2, r, g, b, a);
@@ -161,7 +160,8 @@ public class SusESP extends Module {
             tess.draw();
         }
 
-        private static void add(BufferBuilder buffer, double x1, double y1, double z1, double x2, double y2, double z2, float r, float g, float b, float a) {
+        private static void add(BufferBuilder buffer, double x1, double y1, double z1,
+                                double x2, double y2, double z2, float r, float g, float b, float a) {
             buffer.vertex(x1, y1, z1).color(r, g, b, a).next();
             buffer.vertex(x2, y2, z2).color(r, g, b, a).next();
         }
