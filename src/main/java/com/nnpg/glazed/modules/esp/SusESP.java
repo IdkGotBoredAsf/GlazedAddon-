@@ -113,10 +113,12 @@ public class SusESP extends Module {
         ChunkPos pos = chunk.getPos();
         List<BlockPos> candidates = new ArrayList<>();
 
-        for (ChunkSection section : chunk.getSectionArray()) {
+        ChunkSection[] sections = chunk.getSectionArray();
+        for (int sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
+            ChunkSection section = sections[sectionIndex];
             if (section == null || section.isEmpty()) continue;
 
-            int sectionBaseY = section.getYOffset();
+            int sectionBaseY = chunk.getBottomY() + sectionIndex * 16;
             int startY = Math.max(sectionBaseY, -64);
             int endY = Math.min(sectionBaseY + 15, 45);
 
