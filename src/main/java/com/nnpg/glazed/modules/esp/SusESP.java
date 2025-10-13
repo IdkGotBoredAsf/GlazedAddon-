@@ -23,7 +23,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class SusESP extends Module {
-    // Soft purple highlight color
     private final Color blockColor = new Color(180, 100, 255, 140);
 
     private final Map<ChunkPos, BlockPos> highlightedChunks = new ConcurrentHashMap<>();
@@ -33,7 +32,7 @@ public class SusESP extends Module {
     // Config
     private final boolean drawTracers = true;
     private final boolean sidesOnly = false;
-    private final int scanInterval = 40; // every 2 seconds (20tps = 1s)
+    private final int scanInterval = 40; // every 2 seconds (20 TPS = 1s)
     private int tickCounter = 0;
 
     public SusESP() {
@@ -60,26 +59,24 @@ public class SusESP extends Module {
         long now = System.currentTimeMillis();
         while (!recentAlerts.isEmpty() && now - recentAlerts.peek() > 60000) recentAlerts.poll();
 
-        if (++tickCounter < scanInterval) return; // scan every few seconds
+        if (++tickCounter < scanInterval) return;
         tickCounter = 0;
 
         int renderDistance = mc.options.getViewDistance().getValue();
         BlockPos playerPos = mc.player.getBlockPos();
 
-        // Iterate all loaded chunks in render distance
+        // Scan all chunks in render distance
         for (int cx = -renderDistance; cx <= renderDistance; cx++) {
             for (int cz = -renderDistance; cz <= renderDistance; cz++) {
                 int chunkX = (playerPos.getX() >> 4) + cx;
                 int chunkZ = (playerPos.getZ() >> 4) + cz;
                 ChunkPos cpos = new ChunkPos(chunkX, chunkZ);
 
-                if (highlightedChunks.containsKey(cpos)) continue; // already analyzed
+                if (highlightedChunks.containsKey(cpos)) continue;
 
                 WorldChunk chunk = mc.world.getChunk(chunkX, chunkZ);
-                if (chunk != null) {
-                    if (containsRotatedDeepslate(chunk)) {
-                        highlightRandomBlock(chunk);
-                    }
+                if (chunk != null && containsRotatedDeepslate(chunk)) {
+                    highlightRandomBlock(chunk);
                 }
             }
         }
@@ -87,24 +84,25 @@ public class SusESP extends Module {
 
     // === Detect sideways or upside-down deepslate ===
     private boolean containsRotatedDeepslate(WorldChunk chunk) {
-        for (ChunkSection section : chunk.getSectionArray()) {
-            if (section.isEmpty()) continue;
+        ChunkSection[] sections = chunk.getSectionArray();
 
-            int baseY = chunk.getBottomY() + (section.getYOffset());
+        for (int sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
+            ChunkSection section = sections[sectionIndex];
+            if (section == null || section.isEmpty()) continue;
+
             for (int x = 0; x < 16; x++) {
                 for (int y = 0; y < 16; y++) {
                     for (int z = 0; z < 16; z++) {
                         BlockState state = section.getBlockState(x, y, z);
                         Block block = state.getBlock();
 
-                        if (block == Blocks.DEEPSLATE && state.contains(Properties.AXIS)) {
-                            Direction.Axis axis = state.get(Properties.AXIS);
-                            if (axis == Direction.Axis.X || axis == Direction.Axis.Z) return true;
-                        }
-                        if (block == Blocks.DEEPSLATE && state.contains(Properties.FACING)) {
-                            Direction facing = state.get(Properties.FACING);
-                            if (facing == Direction.DOWN || facing == Direction.NORTH || facing == Direction.SOUTH
-                                    || facing == Direction.EAST || facing == Direction.WEST) {
+                        if (block == Blocks.DEEPSLATE) {
+                            if (state.contains(Properties.AXIS)) {
+                                Direction.Axis axis = state.get(Properties.AXIS);
+                                if (axis == Direction.Axis.X || axis == Direction.Axis.Z) return true;
+                            }
+                            if (state.contains(Properties.FACING)) {
+                                Direction facing = state.get(Properties.FACING);
                                 if (facing != Direction.UP) return true;
                             }
                         }
@@ -123,8 +121,10 @@ public class SusESP extends Module {
 
         for (int sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
             ChunkSection section = sections[sectionIndex];
-            if (section.isEmpty()) continue;
+            if (section == null || section.isEmpty()) continue;
+
             int baseY = chunk.getBottomY() + sectionIndex * 16;
+
             for (int x = 0; x < 16; x++) {
                 for (int y = 0; y < 16; y++) {
                     for (int z = 0; z < 16; z++) {
@@ -171,7 +171,11 @@ public class SusESP extends Module {
 
             if (drawTracers) {
                 Vec3d blockCenter = Vec3d.ofCenter(pos);
-                event.renderer.line(playerEyes, blockCenter, blockColor, 1.5);
+                event.renderer.line(
+                    playerEyes.x, playerEyes.y, playerEyes.z,
+                    blockCenter.x, blockCenter.y, blockCenter.z,
+                    blockColor
+                );
             }
         }
     }
