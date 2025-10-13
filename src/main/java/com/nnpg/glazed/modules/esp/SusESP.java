@@ -17,7 +17,6 @@ import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkSection;
@@ -69,7 +68,12 @@ public class SusESP extends Module {
         if (mc.world == null) return;
         Chunk chunk = event.chunk();
         ChunkPos pos = chunk.getPos();
-        if (!suspiciousBlocks.containsKey(pos)) analyzeChunk(chunk);
+
+        if (!suspiciousBlocks.containsKey(pos)) {
+            // Properly get the WorldChunk
+            WorldChunk worldChunk = (WorldChunk) mc.world.getChunk(pos.x, pos.z);
+            analyzeChunk(worldChunk);
+        }
     }
 
     @EventHandler
