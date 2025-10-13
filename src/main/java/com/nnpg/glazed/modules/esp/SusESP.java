@@ -11,7 +11,6 @@ import meteordevelopment.orbit.EventHandler;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
-import net.minecraft.block.GlowBerryVineBlock;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.state.property.Properties;
@@ -171,10 +170,11 @@ public class SusESP extends Module {
                 for (int y = 0; y < 256; y++) {
                     BlockPos start = new BlockPos(pos.getStartX() + x, y, pos.getStartZ() + z);
                     BlockState state = mc.world.getBlockState(start);
-                    if (state.getBlock() instanceof GlowBerryVineBlock) {
+                    // Fixed line: check against Blocks.GLOW_BERRY_VINE
+                    if (state.getBlock() == Blocks.GLOW_BERRY_VINE) {
                         int length = 1;
                         BlockPos check = start.up();
-                        while (mc.world.getBlockState(check).getBlock() instanceof GlowBerryVineBlock) {
+                        while (mc.world.getBlockState(check).getBlock() == Blocks.GLOW_BERRY_VINE) {
                             length++;
                             check = check.up();
                             if (length > 26) break;
