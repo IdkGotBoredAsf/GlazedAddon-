@@ -8,7 +8,6 @@ import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.sound.PositionedSoundInstance;
@@ -51,14 +50,23 @@ public class SusESP extends Module {
         .build()
     );
 
+    private final Setting<Integer> minVineLength = sgGeneral.add(new IntSetting.Builder()
+        .name("min-vine-length")
+        .description("Minimum glow berry vine length to detect")
+        .defaultValue(10)
+        .min(10)
+        .max(50)
+        .build()
+    );
+
     private final Color blockColor = new Color(125, 60, 152, 150);
     private final Map<ChunkPos, BlockPos> highlightedChunks = new ConcurrentHashMap<>();
     private final Queue<Long> recentAlerts = new ConcurrentLinkedQueue<>();
-    private final Random random = new Random();
     private int tickCounter = 0;
+    private final Random random = new Random();
 
     public SusESP() {
-        super(GlazedAddon.esp, "SusESP", "Detects rotated deepslate and long glow berry vines (10–26 blocks).");
+        super(GlazedAddon.esp, "SusESP", "Detects rotated deepslate and long glow berry vines.");
     }
 
     @Override
@@ -119,11 +127,10 @@ public class SusESP extends Module {
                 for (int y = 0; y < 16; y++) {
                     for (int z = 0; z < 16; z++) {
                         BlockState state = section.getBlockState(x, y, z);
-                        Block block = state.getBlock();
-                        if (block == Blocks.DEEPSLATE) {
+                        if (state.isOf(Blocks.DEEPSLATE)) {
                             if (state.contains(Properties.AXIS)) {
                                 Direction.Axis axis = state.get(Properties.AXIS);
-                                if (axis == Direction.Axis.X || axis == Direction.Axis.Z) return true;
+                                if (axis != Direction.Axis.Y) return true;
                             }
                             if (state.contains(Properties.FACING)) {
                                 Direction facing = state.get(Properties.FACING);
@@ -149,40 +156,41 @@ public class SusESP extends Module {
                 for (int y = 0; y < 16; y++) {
                     for (int z = 0; z < 16; z++) {
                         BlockPos blockPos = new BlockPos(pos.getStartX() + x, baseY + y, pos.getStartZ() + z);
-                        BlockState state = chunk.getBlockState(blockPos);
-                        if (!state.isAir()) solidBlocks.add(blockPos);
+                        if (!chunk.getBlockState(blockPos).isAir()) solidBlocks.add(blockPos);
                     }
                 }
             }
         }
 
         if (!solidBlocks.isEmpty()) {
-            BlockPos selected = solidBlocks.get(random.nextInt(solidBlocks.size()));
-            highlightedChunks.put(pos, selected);
+            highlightedChunks.put(pos, solidBlocks.get(random.nextInt(solidBlocks.size())));
             notifyDetection("Rotated Deepslate Found! Chunk highlighted.");
         }
     }
 
     private BlockPos detectGlowBerryVine(WorldChunk chunk) {
         ChunkPos pos = chunk.getPos();
+
         for (int x = 0; x < 16; x++) {
             for (int z = 0; z < 16; z++) {
-                for (int y = 0; y < 256; y++) {
+                for (int y = mc.world.getBottomY(); y < mc.world.getTopY(); y++) {
                     BlockPos start = new BlockPos(pos.getStartX() + x, y, pos.getStartZ() + z);
-                    BlockState state = mc.world.getBlockState(start);
-                    if (state.getBlock() == Blocks.GLOW_BERRY_VINE) { // fixed for 1.21.4
+                    BlockState state = chunk.getBlockState(start);
+
+                    if (state.isOf(Blocks.CAVE_VINES) || state.isOf(Blocks.CAVE_VINES_PLANT)) {
                         int length = 1;
                         BlockPos check = start.up();
-                        while (mc.world.getBlockState(check).getBlock() == Blocks.GLOW_BERRY_VINE) {
+                        while ((chunk.getBlockState(check).isOf(Blocks.CAVE_VINES) || chunk.getBlockState(check).isOf(Blocks.CAVE_VINES_PLANT)) && length <= 26) {
                             length++;
                             check = check.up();
-                            if (length > 26) break;
                         }
+
                         if (length >= 10 && length <= 26) return start;
                     }
                 }
             }
         }
+
         return null;
     }
 
