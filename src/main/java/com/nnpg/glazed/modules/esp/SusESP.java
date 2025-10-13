@@ -7,22 +7,20 @@ import meteordevelopment.meteorclient.events.world.ChunkDataEvent;
 import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.renderer.ShapeMode;
 import meteordevelopment.meteorclient.systems.modules.Module;
-import meteordevelopment.meteorclient.utils.Utils;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.state.property.Properties;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkSection;
 import net.minecraft.world.chunk.WorldChunk;
 import meteordevelopment.meteorclient.utils.render.color.Color;
-import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 
 import java.util.Map;
 import java.util.Random;
@@ -32,15 +30,14 @@ import java.util.Queue;
 
 public class SusESP extends Module {
 
-    private final SettingColor blockColor = new SettingColor(255, 0, 0, 180);
+    private final Color blockColor = new Color(180, 100, 255, 120); // soft purple
 
     private final Map<ChunkPos, BlockPos> suspiciousBlocks = new ConcurrentHashMap<>();
     private final Queue<Long> recentAlerts = new ConcurrentLinkedQueue<>();
-
     private final Random random = new Random();
 
     public SusESP() {
-        super(GlazedAddon.esp, "SusESP", "ESP suspicious blocks with notifications (fixed detection).");
+        super(GlazedAddon.esp, "SusESP", "ESP sideways rotated normal deepslate blocks.");
     }
 
     @Override
@@ -58,22 +55,14 @@ public class SusESP extends Module {
     @EventHandler
     private void onTick(TickEvent.Pre event) {
         long now = System.currentTimeMillis();
-        while (!recentAlerts.isEmpty() && now - recentAlerts.peek() > 60000) {
-            recentAlerts.poll();
-        }
+        while (!recentAlerts.isEmpty() && now - recentAlerts.peek() > 60000) recentAlerts.poll();
     }
 
     @EventHandler
     private void onChunkLoad(ChunkDataEvent event) {
         if (mc.world == null) return;
-        Chunk chunk = event.chunk();
-        ChunkPos pos = chunk.getPos();
-
-        if (!suspiciousBlocks.containsKey(pos)) {
-            // Properly get the WorldChunk
-            WorldChunk worldChunk = (WorldChunk) mc.world.getChunk(pos.x, pos.z);
-            analyzeChunk(worldChunk);
-        }
+        WorldChunk chunk = (WorldChunk) mc.world.getChunk(event.chunk().getPos().x, event.chunk().getPos().z);
+        if (!suspiciousBlocks.containsKey(chunk.getPos())) analyzeChunk(chunk);
     }
 
     @EventHandler
@@ -91,10 +80,7 @@ public class SusESP extends Module {
     }
 
     private void analyzeChunk(WorldChunk chunk) {
-        ChunkPos pos = chunk.getPos();
         ChunkSection[] sections = chunk.getSectionArray();
-
-        // Collect all suspicious blocks in this chunk
         var candidates = new java.util.ArrayList<BlockPos>();
 
         for (int sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
@@ -107,9 +93,7 @@ public class SusESP extends Module {
                     for (int z = 0; z < 16; z++) {
                         BlockPos bp = new BlockPos(chunk.getPos().getStartX() + x, sectionY + y, chunk.getPos().getStartZ() + z);
                         BlockState state = section.getBlockState(x, y, z);
-                        if (isSuspiciousBlock(state)) {
-                            candidates.add(bp);
-                        }
+                        if (isSuspiciousBlock(state)) candidates.add(bp);
                     }
                 }
             }
@@ -117,36 +101,30 @@ public class SusESP extends Module {
 
         if (!candidates.isEmpty()) {
             BlockPos selected = candidates.get(random.nextInt(candidates.size()));
-            suspiciousBlocks.put(pos, selected);
+            suspiciousBlocks.put(chunk.getPos(), selected);
             notifyDetection();
         }
     }
 
+    // Only detect sideways normal deepslate (AXIS X or Z)
     private boolean isSuspiciousBlock(BlockState state) {
         Block block = state.getBlock();
-        return block == Blocks.DEEPSLATE ||
-               block == Blocks.COBBLED_DEEPSLATE ||
-               block == Blocks.POLISHED_DEEPSLATE ||
-               block == Blocks.DEEPSLATE_BRICKS ||
-               block == Blocks.DEEPSLATE_TILES ||
-               block == Blocks.CHISELED_DEEPSLATE ||
-               block == Blocks.DIAMOND_ORE ||
-               block == Blocks.DEEPSLATE_DIAMOND_ORE ||
-               block == Blocks.EMERALD_ORE ||
-               block == Blocks.DEEPSLATE_EMERALD_ORE ||
-               block == Blocks.GOLD_ORE ||
-               block == Blocks.DEEPSLATE_GOLD_ORE ||
-               block == Blocks.IRON_ORE ||
-               block == Blocks.DEEPSLATE_IRON_ORE ||
-               block == Blocks.ANCIENT_DEBRIS;
+        if (block != Blocks.DEEPSLATE) return false;
+
+        // Check axis property
+        if (state.contains(Properties.AXIS)) {
+            return state.get(Properties.AXIS) != net.minecraft.util.math.Direction.Axis.Y;
+        }
+        return false;
     }
 
     private void notifyDetection() {
         long now = System.currentTimeMillis();
         if (recentAlerts.size() >= 5) return;
+
         mc.execute(() -> {
             if (mc.player != null) {
-                mc.player.sendMessage(Text.literal("§6[SusESP] §eSusESP Detected!"), false);
+                mc.player.sendMessage(Text.literal("§6[SusESP] §eSideways Deepslate Detected!"), false);
                 mc.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f));
             }
             recentAlerts.offer(now);
@@ -162,8 +140,7 @@ public class SusESP extends Module {
             double distance = mc.player.getPos().distanceTo(Vec3d.ofCenter(pos));
             if (distance > mc.options.getViewDistance().getValue() * 16) continue;
 
-            Color color = new Color(blockColor);
-            event.renderer.box(new net.minecraft.util.math.Box(pos), color, color, ShapeMode.Lines, 0);
+            event.renderer.box(new net.minecraft.util.math.Box(pos), blockColor, blockColor, ShapeMode.Lines, 2);
         }
     }
 }
