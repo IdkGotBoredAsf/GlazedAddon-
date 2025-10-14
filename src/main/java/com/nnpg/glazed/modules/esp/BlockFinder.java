@@ -10,6 +10,7 @@ import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.block.Block;
+import net.minecraft.block.Blocks;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.sound.SoundEvents;
@@ -25,49 +26,49 @@ public class BlockFinder extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
     private final Setting<List<Block>> blocksToFind = sgGeneral.add(new BlockListSetting.Builder()
-        .name("blocks")
-        .description("Blocks to highlight in the world.")
-        .defaultValue(List.of())
-        .build()
+            .name("blocks")
+            .description("Blocks to highlight in the world.")
+            .defaultValue(List.of())
+            .build()
     );
 
     private final Setting<ShapeMode> shapeMode = sgGeneral.add(new EnumSetting.Builder<ShapeMode>()
-        .name("shape-mode")
-        .description("How the boxes are rendered.")
-        .defaultValue(ShapeMode.Both)
-        .build()
+            .name("shape-mode")
+            .description("How the boxes are rendered.")
+            .defaultValue(ShapeMode.Both)
+            .build()
     );
 
     private final Setting<SettingColor> color = sgGeneral.add(new ColorSetting.Builder()
-        .name("color")
-        .description("Color of the highlight.")
-        .defaultValue(new SettingColor(0, 255, 120, 150))
-        .build()
+            .name("color")
+            .description("Color of the highlight.")
+            .defaultValue(new SettingColor(0, 255, 120, 150))
+            .build()
     );
 
     private final Setting<Boolean> tracers = sgGeneral.add(new BoolSetting.Builder()
-        .name("tracers")
-        .description("Draws tracers to the found blocks.")
-        .defaultValue(true)
-        .build()
+            .name("tracers")
+            .description("Draws tracers to the found blocks.")
+            .defaultValue(true)
+            .build()
     );
 
     private final Setting<Integer> range = sgGeneral.add(new IntSetting.Builder()
-        .name("range")
-        .description("How far to search for the blocks.")
-        .defaultValue(64)
-        .min(8)
-        .sliderRange(8, 256)
-        .build()
+            .name("range")
+            .description("How far to search for the blocks.")
+            .defaultValue(64)
+            .min(8)
+            .sliderRange(8, 256)
+            .build()
     );
 
     private final Setting<Integer> scanDelayTicks = sgGeneral.add(new IntSetting.Builder()
-        .name("scan-delay-ticks")
-        .description("Ticks between full scans (20 ticks = 1 second).")
-        .defaultValue(10)
-        .min(1)
-        .max(200)
-        .build()
+            .name("scan-delay-ticks")
+            .description("Ticks between full scans (20 ticks = 1 second).")
+            .defaultValue(10)
+            .min(1)
+            .max(200)
+            .build()
     );
 
     private final Map<BlockPos, Block> foundBlocks = new ConcurrentHashMap<>();
@@ -99,7 +100,7 @@ public class BlockFinder extends Module {
 
         BlockPos playerPos = mc.player.getBlockPos();
         int search = range.get();
-        List<Block> targets = blocksToFind.get();
+        List<Block> targets = expandBlocks(blocksToFind.get());
         if (targets.isEmpty()) return;
 
         // Calculate chunk radius for efficiency
@@ -121,6 +122,23 @@ public class BlockFinder extends Module {
                 mc.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.BLOCK_NOTE_BLOCK_PLING, 1.2f));
             });
         }
+    }
+
+    private List<Block> expandBlocks(List<Block> targets) {
+        List<Block> expanded = new ArrayList<>(targets);
+
+        for (Block b : targets) {
+            if (b == Blocks.COAL_ORE) expanded.add(Blocks.DEEPSLATE_COAL_ORE);
+            else if (b == Blocks.IRON_ORE) expanded.add(Blocks.DEEPSLATE_IRON_ORE);
+            else if (b == Blocks.GOLD_ORE) expanded.add(Blocks.DEEPSLATE_GOLD_ORE);
+            else if (b == Blocks.DIAMOND_ORE) expanded.add(Blocks.DEEPSLATE_DIAMOND_ORE);
+            else if (b == Blocks.REDSTONE_ORE) expanded.add(Blocks.DEEPSLATE_REDSTONE_ORE);
+            else if (b == Blocks.LAPIS_ORE) expanded.add(Blocks.DEEPSLATE_LAPIS_ORE);
+            else if (b == Blocks.EMERALD_ORE) expanded.add(Blocks.DEEPSLATE_EMERALD_ORE);
+            else if (b == Blocks.COPPER_ORE) expanded.add(Blocks.DEEPSLATE_COPPER_ORE);
+        }
+
+        return expanded;
     }
 
     private void scanChunk(WorldChunk chunk, BlockPos playerPos, int range, List<Block> targets) {
@@ -165,13 +183,11 @@ public class BlockFinder extends Module {
 
             double distance = mc.player.getPos().distanceTo(Vec3d.ofCenter(pos));
             double alpha = Math.max(0.2, 1 - (distance / range.get())); // fade with distance
-            Color fadeColor = new Color(baseColor.r, baseColor.g, baseColor.b, (int)(baseColor.a * alpha));
+            Color fadeColor = new Color(baseColor.r, baseColor.g, baseColor.b, (int) (baseColor.a * alpha));
 
-            // Render ESP box through walls
             Box box = new Box(pos);
             event.renderer.box(box, fadeColor, fadeColor, shapeMode.get(), 2);
 
-            // Render smooth tracers
             if (tracers.get()) {
                 Vec3d center = Vec3d.ofCenter(pos);
                 event.renderer.line(eyePos.x, eyePos.y, eyePos.z, center.x, center.y, center.z, fadeColor);
