@@ -26,7 +26,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class SusESP extends Module {
-    // === Settings ===
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
     private final Setting<Boolean> tracers = sgGeneral.add(new BoolSetting.Builder()
@@ -52,16 +51,13 @@ public class SusESP extends Module {
         .build()
     );
 
-    // === Visuals ===
-    private final Color blockColor = new Color(125, 60, 152, 150); // grape purple shade
+    private final Color blockColor = new Color(125, 60, 152, 150);
 
-    // === Internal tracking ===
     private final Map<ChunkPos, BlockPos> highlightedChunks = new ConcurrentHashMap<>();
     private final Queue<Long> recentAlerts = new ConcurrentLinkedQueue<>();
     private final Random random = new Random();
     private int tickCounter = 0;
 
-    // === Constants ===
     private static final int COBBLED_THRESHOLD = 4;
     private static final int Y_MIN = -64;
     private static final int Y_MAX = 45;
@@ -83,7 +79,6 @@ public class SusESP extends Module {
         recentAlerts.clear();
     }
 
-    // === Main tick loop ===
     @EventHandler
     private void onTick(TickEvent.Pre event) {
         if (mc.world == null || mc.player == null) return;
@@ -103,13 +98,11 @@ public class SusESP extends Module {
                 int chunkZ = (playerPos.getZ() >> 4) + cz;
                 ChunkPos cpos = new ChunkPos(chunkX, chunkZ);
 
-                // Only one highlight per chunk
                 if (highlightedChunks.containsKey(cpos)) continue;
 
                 WorldChunk chunk = mc.world.getChunk(chunkX, chunkZ);
                 if (chunk == null) continue;
 
-                // Detect rotated or cobbled clusters
                 if (containsRotatedOrCobbledDeepslate(chunk)) {
                     highlightRandomSolidBlock(chunk);
                 }
@@ -117,7 +110,6 @@ public class SusESP extends Module {
         }
     }
 
-    // === Detect rotated deepslate or cobbled clusters ===
     private boolean containsRotatedOrCobbledDeepslate(WorldChunk chunk) {
         ChunkSection[] sections = chunk.getSectionArray();
         int cobbledCount = 0;
@@ -126,8 +118,7 @@ public class SusESP extends Module {
         for (ChunkSection section : sections) {
             if (section == null || section.isEmpty()) continue;
 
-            // ✅ FIXED for 1.21.4 — replaces section.getYOffset()
-            int baseY = section.getBottomBlockY();
+            int baseY = chunk.getBottomY() + section.getYOffset();
             if (baseY > Y_MAX || baseY + 15 < Y_MIN) continue;
 
             for (int x = 0; x < 16; x++) {
@@ -163,7 +154,6 @@ public class SusESP extends Module {
         return false;
     }
 
-    // === Highlight one solid block per chunk ===
     private void highlightRandomSolidBlock(WorldChunk chunk) {
         ChunkPos pos = chunk.getPos();
         List<BlockPos> solidBlocks = new ArrayList<>();
@@ -187,7 +177,6 @@ public class SusESP extends Module {
         }
     }
 
-    // === Notification sound + message ===
     private void notifyDetection() {
         long now = System.currentTimeMillis();
         if (recentAlerts.size() >= 5) return;
@@ -201,7 +190,6 @@ public class SusESP extends Module {
         });
     }
 
-    // === Render highlights and tracers ===
     @EventHandler
     private void onRender3D(Render3DEvent event) {
         if (mc.player == null || mc.world == null) return;
