@@ -126,7 +126,8 @@ public class SusESP extends Module {
         for (ChunkSection section : sections) {
             if (section == null || section.isEmpty()) continue;
 
-            int baseY = chunk.getBottomY() + section.getYOffset();
+            // ✅ FIXED for 1.21.4 — replaces section.getYOffset()
+            int baseY = section.getBottomBlockY();
             if (baseY > Y_MAX || baseY + 15 < Y_MIN) continue;
 
             for (int x = 0; x < 16; x++) {
