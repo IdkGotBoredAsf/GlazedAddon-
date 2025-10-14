@@ -12,7 +12,6 @@ import meteordevelopment.orbit.EventHandler;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.sound.PositionedSoundInstance;
-import net.minecraft.registry.Registries;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.*;
@@ -22,7 +21,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class BlockFinder extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
-    // Select blocks to detect
     private final Setting<List<Block>> blocksToFind = sgGeneral.add(new BlockListSetting.Builder()
         .name("blocks")
         .description("Blocks to highlight in the world.")
@@ -30,7 +28,6 @@ public class BlockFinder extends Module {
         .build()
     );
 
-    // Shape of ESP boxes
     private final Setting<ShapeMode> shapeMode = sgGeneral.add(new EnumSetting.Builder<ShapeMode>()
         .name("shape-mode")
         .description("How the boxes are rendered.")
@@ -38,7 +35,6 @@ public class BlockFinder extends Module {
         .build()
     );
 
-    // Color of the ESP
     private final Setting<SettingColor> color = sgGeneral.add(new ColorSetting.Builder()
         .name("color")
         .description("Color of the highlight.")
@@ -46,7 +42,6 @@ public class BlockFinder extends Module {
         .build()
     );
 
-    // Tracers toggle
     private final Setting<Boolean> tracers = sgGeneral.add(new BoolSetting.Builder()
         .name("tracers")
         .description("Draws tracers to the found blocks.")
@@ -54,7 +49,6 @@ public class BlockFinder extends Module {
         .build()
     );
 
-    // How far to search
     private final Setting<Integer> range = sgGeneral.add(new IntSetting.Builder()
         .name("range")
         .description("How far to search for the blocks.")
@@ -64,9 +58,17 @@ public class BlockFinder extends Module {
         .build()
     );
 
-    // Store found blocks safely
+    private final Setting<Integer> scanDelayTicks = sgGeneral.add(new IntSetting.Builder()
+        .name("scan-delay-ticks")
+        .description("Ticks between full scans (20 ticks = 1 second).")
+        .defaultValue(20)
+        .min(5)
+        .max(200)
+        .build()
+    );
+
     private final Map<BlockPos, Block> foundBlocks = new ConcurrentHashMap<>();
-    private int tickDelay = 0;
+    private int tickDelayCounter = 0;
 
     public BlockFinder() {
         super(GlazedAddon.esp, "BlockFinder", "Highlights specific blocks you choose in the world or on servers.");
@@ -75,7 +77,7 @@ public class BlockFinder extends Module {
     @Override
     public void onActivate() {
         foundBlocks.clear();
-        tickDelay = 0;
+        tickDelayCounter = 0;
     }
 
     @Override
@@ -87,9 +89,8 @@ public class BlockFinder extends Module {
     private void onTick(TickEvent.Post event) {
         if (mc.world == null || mc.player == null) return;
 
-        // Prevent lag — only scan once per second (20 ticks)
-        if (tickDelay++ < 20) return;
-        tickDelay = 0;
+        if (++tickDelayCounter < scanDelayTicks.get()) return;
+        tickDelayCounter = 0;
 
         foundBlocks.clear();
 
@@ -99,11 +100,14 @@ public class BlockFinder extends Module {
 
         if (targets.isEmpty()) return;
 
-        // Scan for blocks in range
         for (int x = -search; x <= search; x++) {
             for (int y = -search; y <= search; y++) {
                 for (int z = -search; z <= search; z++) {
                     BlockPos pos = playerPos.add(x, y, z);
+
+                    // distance check for performance
+                    if (pos.getSquaredDistance(playerPos) > search * search) continue;
+
                     BlockState state = mc.world.getBlockState(pos);
                     if (state == null) continue;
 
@@ -115,7 +119,6 @@ public class BlockFinder extends Module {
             }
         }
 
-        // Notify player if blocks are found
         if (!foundBlocks.isEmpty()) {
             mc.execute(() -> {
                 mc.player.sendMessage(Text.literal("§a[BlockFinder] Found " + foundBlocks.size() + " target block(s)."), false);
@@ -129,17 +132,17 @@ public class BlockFinder extends Module {
         if (mc.player == null || mc.world == null) return;
 
         Vec3d eyePos = mc.player.getCameraPosVec(event.tickDelta);
+        Color c = color.get();
 
+        // Iterate through all found blocks and render them
         for (BlockPos pos : foundBlocks.keySet()) {
             if (pos == null) continue;
 
+            // Draw box through walls (ESP visible behind blocks)
             Box box = new Box(pos);
-            Color c = color.get();
-
-            // Draw the ESP box
             event.renderer.box(box, c, c, shapeMode.get(), 2);
 
-            // Optionally draw tracers
+            // Draw smooth tracers
             if (tracers.get()) {
                 Vec3d center = Vec3d.ofCenter(pos);
                 event.renderer.line(
