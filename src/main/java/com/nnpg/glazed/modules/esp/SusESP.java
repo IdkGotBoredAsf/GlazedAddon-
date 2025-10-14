@@ -115,10 +115,11 @@ public class SusESP extends Module {
         int cobbledCount = 0;
         boolean foundRotated = false;
 
-        for (ChunkSection section : sections) {
+        for (int i = 0; i < sections.length; i++) {
+            ChunkSection section = sections[i];
             if (section == null || section.isEmpty()) continue;
 
-            int baseY = chunk.getBottomY() + section.getYOffset();
+            int baseY = chunk.getBottomY() + (i * 16);
             if (baseY > Y_MAX || baseY + 15 < Y_MIN) continue;
 
             for (int x = 0; x < 16; x++) {
