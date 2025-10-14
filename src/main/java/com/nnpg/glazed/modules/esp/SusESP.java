@@ -31,7 +31,7 @@ public class SusESP extends Module {
 
     private final Setting<Boolean> tracers = sgGeneral.add(new BoolSetting.Builder()
         .name("tracers")
-        .description("Detects SusESP.")
+        .description("Show tracers to detected blocks.")
         .defaultValue(true)
         .build()
     );
@@ -61,8 +61,13 @@ public class SusESP extends Module {
     private final Random random = new Random();
     private int tickCounter = 0;
 
+    // === Constants ===
+    private static final int COBBLED_THRESHOLD = 4;
+    private static final int Y_MIN = -64;
+    private static final int Y_MAX = 45;
+
     public SusESP() {
-        super(GlazedAddon.esp, "SusESP", "Detects SusESP.");
+        super(GlazedAddon.esp, "SusESP", "Detects rotated or cobbled deepslate clusters between Y -64 and 45.");
     }
 
     @Override
@@ -83,11 +88,11 @@ public class SusESP extends Module {
     private void onTick(TickEvent.Pre event) {
         if (mc.world == null || mc.player == null) return;
 
-        long now = System.currentTimeMillis();
-        while (!recentAlerts.isEmpty() && now - recentAlerts.peek() > 60000) recentAlerts.poll();
-
         if (++tickCounter < scanInterval.get()) return;
         tickCounter = 0;
+
+        long now = System.currentTimeMillis();
+        while (!recentAlerts.isEmpty() && now - recentAlerts.peek() > 60000) recentAlerts.poll();
 
         int renderDistance = mc.options.getViewDistance().getValue();
         BlockPos playerPos = mc.player.getBlockPos();
@@ -98,40 +103,58 @@ public class SusESP extends Module {
                 int chunkZ = (playerPos.getZ() >> 4) + cz;
                 ChunkPos cpos = new ChunkPos(chunkX, chunkZ);
 
-                // only one highlight per chunk
+                // Only one highlight per chunk
                 if (highlightedChunks.containsKey(cpos)) continue;
 
                 WorldChunk chunk = mc.world.getChunk(chunkX, chunkZ);
-                if (chunk != null && containsRotatedDeepslate(chunk)) {
+                if (chunk == null) continue;
+
+                // Detect rotated or cobbled clusters
+                if (containsRotatedOrCobbledDeepslate(chunk)) {
                     highlightRandomSolidBlock(chunk);
                 }
             }
         }
     }
 
-    // === Detect sideways or upside-down deepslate ===
-    private boolean containsRotatedDeepslate(WorldChunk chunk) {
+    // === Detect rotated deepslate or cobbled clusters ===
+    private boolean containsRotatedOrCobbledDeepslate(WorldChunk chunk) {
         ChunkSection[] sections = chunk.getSectionArray();
+        int cobbledCount = 0;
+        boolean foundRotated = false;
 
         for (ChunkSection section : sections) {
             if (section == null || section.isEmpty()) continue;
 
+            int baseY = chunk.getBottomY() + section.getYOffset();
+            if (baseY > Y_MAX || baseY + 15 < Y_MIN) continue;
+
             for (int x = 0; x < 16; x++) {
                 for (int y = 0; y < 16; y++) {
+                    int worldY = baseY + y;
+                    if (worldY > Y_MAX || worldY < Y_MIN) continue;
+
                     for (int z = 0; z < 16; z++) {
                         BlockState state = section.getBlockState(x, y, z);
                         Block block = state.getBlock();
 
+                        if (block == Blocks.COBBLED_DEEPSLATE) {
+                            cobbledCount++;
+                            if (cobbledCount >= COBBLED_THRESHOLD) return true;
+                        }
+
                         if (block == Blocks.DEEPSLATE) {
                             if (state.contains(Properties.AXIS)) {
                                 Direction.Axis axis = state.get(Properties.AXIS);
-                                if (axis == Direction.Axis.X || axis == Direction.Axis.Z) return true;
+                                if (axis == Direction.Axis.X || axis == Direction.Axis.Z) foundRotated = true;
                             }
                             if (state.contains(Properties.FACING)) {
                                 Direction facing = state.get(Properties.FACING);
-                                if (facing != Direction.UP) return true;
+                                if (facing != Direction.UP) foundRotated = true;
                             }
                         }
+
+                        if (foundRotated) return true;
                     }
                 }
             }
@@ -142,21 +165,15 @@ public class SusESP extends Module {
     // === Highlight one solid block per chunk ===
     private void highlightRandomSolidBlock(WorldChunk chunk) {
         ChunkPos pos = chunk.getPos();
-        ChunkSection[] sections = chunk.getSectionArray();
         List<BlockPos> solidBlocks = new ArrayList<>();
 
-        for (int sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
-            ChunkSection section = sections[sectionIndex];
-            if (section == null || section.isEmpty()) continue;
-
-            int baseY = chunk.getBottomY() + sectionIndex * 16;
-
-            for (int x = 0; x < 16; x++) {
-                for (int y = 0; y < 16; y++) {
-                    for (int z = 0; z < 16; z++) {
-                        BlockPos blockPos = new BlockPos(pos.getStartX() + x, baseY + y, pos.getStartZ() + z);
-                        BlockState state = chunk.getBlockState(blockPos);
-                        if (!state.isAir()) solidBlocks.add(blockPos);
+        for (int x = 0; x < 16; x++) {
+            for (int y = Y_MIN; y <= Y_MAX; y++) {
+                for (int z = 0; z < 16; z++) {
+                    BlockPos blockPos = new BlockPos(pos.getStartX() + x, y, pos.getStartZ() + z);
+                    BlockState state = chunk.getBlockState(blockPos);
+                    if (!state.isAir() && state.getBlock() != Blocks.VINE && state.getBlock() != Blocks.GLOW_LICHEN) {
+                        solidBlocks.add(blockPos);
                     }
                 }
             }
@@ -169,14 +186,14 @@ public class SusESP extends Module {
         }
     }
 
-    // === Sound and chat message ===
+    // === Notification sound + message ===
     private void notifyDetection() {
         long now = System.currentTimeMillis();
         if (recentAlerts.size() >= 5) return;
 
         mc.execute(() -> {
             if (mc.player != null) {
-                mc.player.sendMessage(Text.literal("§6[SusESP] §dSusESP Found! §7(Chunk highlighted)"), false);
+                mc.player.sendMessage(Text.literal("§6[SusESP] §dSuspicious chunk detected! §7(Highlighted)"), false);
                 mc.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f));
             }
             recentAlerts.offer(now);
@@ -188,16 +205,14 @@ public class SusESP extends Module {
     private void onRender3D(Render3DEvent event) {
         if (mc.player == null || mc.world == null) return;
 
-        // Crosshair position for clean tracers
         Vec3d crosshairPos = mc.player.getCameraPosVec(1);
         HitResult hit = mc.crosshairTarget;
-        if (hit instanceof BlockHitResult blockHit) {
-            crosshairPos = blockHit.getPos();
-        }
+        if (hit instanceof BlockHitResult blockHit) crosshairPos = blockHit.getPos();
 
         for (Map.Entry<ChunkPos, BlockPos> entry : highlightedChunks.entrySet()) {
             BlockPos pos = entry.getValue();
-            if (mc.world.getBlockState(pos).isAir()) continue; // skip air blocks
+            if (mc.world.getBlockState(pos).isAir()) continue;
+
             double distance = mc.player.getPos().distanceTo(Vec3d.ofCenter(pos));
             if (distance > mc.options.getViewDistance().getValue() * 16) continue;
 
