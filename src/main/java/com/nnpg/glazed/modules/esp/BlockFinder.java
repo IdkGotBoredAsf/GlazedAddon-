@@ -24,7 +24,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class BlockFinder extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
-    // Blocks to detect (user selectable)
     private final Setting<List<Block>> blocksToFind = sgGeneral.add(new BlockListSetting.Builder()
         .name("blocks")
         .description("Blocks to highlight in the world.")
@@ -126,9 +125,11 @@ public class BlockFinder extends Module {
 
     private void scanChunk(WorldChunk chunk, BlockPos playerPos, int range, List<Block> targets) {
         ChunkSection[] sections = chunk.getSectionArray();
-        for (ChunkSection section : sections) {
+        for (int sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
+            ChunkSection section = sections[sectionIndex];
             if (section == null || section.isEmpty()) continue;
-            int baseY = section.getBottomY();
+
+            int baseY = sectionIndex << 4; // Each section is 16 blocks high
 
             for (int x = 0; x < 16; x++) {
                 for (int y = 0; y < 16; y++) {
@@ -137,7 +138,6 @@ public class BlockFinder extends Module {
 
                     for (int z = 0; z < 16; z++) {
                         BlockPos pos = new BlockPos((chunk.getPos().x << 4) + x, worldY, (chunk.getPos().z << 4) + z);
-
                         if (pos.getSquaredDistance(playerPos) > range * range) continue;
 
                         BlockState state = chunk.getBlockState(pos);
