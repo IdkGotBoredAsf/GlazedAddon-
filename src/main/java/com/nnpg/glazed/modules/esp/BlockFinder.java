@@ -74,6 +74,7 @@ public class BlockFinder extends Module {
     private final Map<BlockPos, Block> foundBlocks = new ConcurrentHashMap<>();
     private final Set<BlockPos> predictedDiamonds = new HashSet<>();
     private int tickDelayCounter = 0;
+    private final Random random = new Random(); // client-side pseudo-random
 
     public BlockFinder() {
         super(GlazedAddon.esp, "BlockFinder", "Advanced ESP for selected blocks, including hidden ores and predicted diamonds.");
@@ -107,7 +108,7 @@ public class BlockFinder extends Module {
         List<Block> targets = expandBlocks(blocksToFind.get());
         if (targets.isEmpty()) return;
 
-        // Generate predicted diamond positions (pseudo Seedcracker)
+        // Generate pseudo-random predicted diamonds
         generatePredictedDiamonds(playerPos, search);
 
         // Calculate chunk radius for efficiency
@@ -127,14 +128,13 @@ public class BlockFinder extends Module {
             mc.execute(() -> {
                 mc.player.sendMessage(Text.literal(
                         "§a[BlockFinder] Found " + foundBlocks.size() + " target block(s) and " +
-                        predictedDiamonds.size() + " predicted diamond(s)."), false);
+                                predictedDiamonds.size() + " predicted diamond(s)."), false);
                 mc.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.BLOCK_NOTE_BLOCK_PLING, 1.2f));
             });
         }
     }
 
     private void generatePredictedDiamonds(BlockPos playerPos, int range) {
-        Random random = new Random(mc.world.getSeed());
         int diamondCount = 20; // number of predicted diamonds
 
         for (int i = 0; i < diamondCount; i++) {
