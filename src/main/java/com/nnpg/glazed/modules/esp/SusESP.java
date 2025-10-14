@@ -30,14 +30,14 @@ public class SusESP extends Module {
 
     private final Setting<Boolean> tracers = sgGeneral.add(new BoolSetting.Builder()
         .name("tracers")
-        .description("Show tracers to detected blocks.")
+        .description("Show tracers to esp.")
         .defaultValue(true)
         .build()
     );
 
     private final Setting<ShapeMode> highlightMode = sgGeneral.add(new EnumSetting.Builder<ShapeMode>()
         .name("highlight-mode")
-        .description("Choose how blocks are highlighted.")
+        .description("Choose how esp are highlighted.")
         .defaultValue(ShapeMode.Both)
         .build()
     );
@@ -45,7 +45,7 @@ public class SusESP extends Module {
     private final Setting<Integer> scanInterval = sgGeneral.add(new IntSetting.Builder()
         .name("scan-interval")
         .description("Delay between scans (in ticks).")
-        .defaultValue(40)
+        .defaultValue(20)
         .min(5)
         .sliderRange(5, 200)
         .build()
@@ -63,7 +63,7 @@ public class SusESP extends Module {
     private static final int Y_MAX = 45;
 
     public SusESP() {
-        super(GlazedAddon.esp, "SusESP", "Detects rotated or cobbled deepslate clusters between Y -64 and 45.");
+        super(GlazedAddon.esp, "SusESP", "Detects suspicious clusters.");
     }
 
     @Override
@@ -184,7 +184,7 @@ public class SusESP extends Module {
 
         mc.execute(() -> {
             if (mc.player != null) {
-                mc.player.sendMessage(Text.literal("§6[SusESP] §dSuspicious chunk detected! §7(Highlighted)"), false);
+                mc.player.sendMessage(Text.literal("§6[SusESP] §dSuspicious esp detected!"), false);
                 mc.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f));
             }
             recentAlerts.offer(now);
