@@ -15,12 +15,16 @@ import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.*;
+import net.minecraft.world.chunk.ChunkSection;
+import net.minecraft.world.chunk.WorldChunk;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class BlockFinder extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
+    // Blocks to detect (user selectable)
     private final Setting<List<Block>> blocksToFind = sgGeneral.add(new BlockListSetting.Builder()
         .name("blocks")
         .description("Blocks to highlight in the world.")
@@ -61,8 +65,8 @@ public class BlockFinder extends Module {
     private final Setting<Integer> scanDelayTicks = sgGeneral.add(new IntSetting.Builder()
         .name("scan-delay-ticks")
         .description("Ticks between full scans (20 ticks = 1 second).")
-        .defaultValue(20)
-        .min(5)
+        .defaultValue(10)
+        .min(1)
         .max(200)
         .build()
     );
@@ -71,7 +75,7 @@ public class BlockFinder extends Module {
     private int tickDelayCounter = 0;
 
     public BlockFinder() {
-        super(GlazedAddon.esp, "BlockFinder", "Highlights specific blocks you choose in the world or on servers.");
+        super(GlazedAddon.esp, "BlockFinder", "Advanced ESP for selected blocks, including hidden ores.");
     }
 
     @Override
@@ -97,25 +101,18 @@ public class BlockFinder extends Module {
         BlockPos playerPos = mc.player.getBlockPos();
         int search = range.get();
         List<Block> targets = blocksToFind.get();
-
         if (targets.isEmpty()) return;
 
-        for (int x = -search; x <= search; x++) {
-            for (int y = -search; y <= search; y++) {
-                for (int z = -search; z <= search; z++) {
-                    BlockPos pos = playerPos.add(x, y, z);
+        // Calculate chunk radius for efficiency
+        int chunkRadius = (search >> 4) + 1;
+        for (int dx = -chunkRadius; dx <= chunkRadius; dx++) {
+            for (int dz = -chunkRadius; dz <= chunkRadius; dz++) {
+                int chunkX = (playerPos.getX() >> 4) + dx;
+                int chunkZ = (playerPos.getZ() >> 4) + dz;
+                WorldChunk chunk = mc.world.getChunk(chunkX, chunkZ);
+                if (chunk == null) continue;
 
-                    // distance check for performance
-                    if (pos.getSquaredDistance(playerPos) > search * search) continue;
-
-                    BlockState state = mc.world.getBlockState(pos);
-                    if (state == null) continue;
-
-                    Block block = state.getBlock();
-                    if (targets.contains(block)) {
-                        foundBlocks.put(pos.toImmutable(), block);
-                    }
-                }
+                scanChunk(chunk, playerPos, search, targets);
             }
         }
 
@@ -127,29 +124,57 @@ public class BlockFinder extends Module {
         }
     }
 
+    private void scanChunk(WorldChunk chunk, BlockPos playerPos, int range, List<Block> targets) {
+        ChunkSection[] sections = chunk.getSectionArray();
+        for (ChunkSection section : sections) {
+            if (section == null || section.isEmpty()) continue;
+            int baseY = section.getBottomY();
+
+            for (int x = 0; x < 16; x++) {
+                for (int y = 0; y < 16; y++) {
+                    int worldY = baseY + y;
+                    if (worldY < 0 || worldY > 255) continue;
+
+                    for (int z = 0; z < 16; z++) {
+                        BlockPos pos = new BlockPos((chunk.getPos().x << 4) + x, worldY, (chunk.getPos().z << 4) + z);
+
+                        if (pos.getSquaredDistance(playerPos) > range * range) continue;
+
+                        BlockState state = chunk.getBlockState(pos);
+                        if (state == null) continue;
+
+                        Block block = state.getBlock();
+                        if (targets.contains(block)) {
+                            foundBlocks.put(pos, block);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     @EventHandler
     private void onRender3D(Render3DEvent event) {
         if (mc.player == null || mc.world == null) return;
 
         Vec3d eyePos = mc.player.getCameraPosVec(event.tickDelta);
-        Color c = color.get();
+        Color baseColor = color.get();
 
-        // Iterate through all found blocks and render them
         for (BlockPos pos : foundBlocks.keySet()) {
             if (pos == null) continue;
 
-            // Draw box through walls (ESP visible behind blocks)
-            Box box = new Box(pos);
-            event.renderer.box(box, c, c, shapeMode.get(), 2);
+            double distance = mc.player.getPos().distanceTo(Vec3d.ofCenter(pos));
+            double alpha = Math.max(0.2, 1 - (distance / range.get())); // fade with distance
+            Color fadeColor = new Color(baseColor.r, baseColor.g, baseColor.b, (int)(baseColor.a * alpha));
 
-            // Draw smooth tracers
+            // Render ESP box through walls
+            Box box = new Box(pos);
+            event.renderer.box(box, fadeColor, fadeColor, shapeMode.get(), 2);
+
+            // Render smooth tracers
             if (tracers.get()) {
                 Vec3d center = Vec3d.ofCenter(pos);
-                event.renderer.line(
-                    eyePos.x, eyePos.y, eyePos.z,
-                    center.x, center.y, center.z,
-                    c
-                );
+                event.renderer.line(eyePos.x, eyePos.y, eyePos.z, center.x, center.y, center.z, fadeColor);
             }
         }
     }
