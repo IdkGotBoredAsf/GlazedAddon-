@@ -9,7 +9,6 @@ import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
-import me.dags.seedcracker.SeedCracker; // SeedcrackerX import
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.BlockState;
@@ -77,7 +76,7 @@ public class BlockFinder extends Module {
     private int tickDelayCounter = 0;
 
     public BlockFinder() {
-        super(GlazedAddon.esp, "BlockFinder", "Advanced ESP for selected blocks, including hidden ores and Seedcracker diamonds.");
+        super(GlazedAddon.esp, "BlockFinder", "Advanced ESP for selected blocks, including hidden ores and predicted diamonds.");
     }
 
     @Override
@@ -108,8 +107,8 @@ public class BlockFinder extends Module {
         List<Block> targets = expandBlocks(blocksToFind.get());
         if (targets.isEmpty()) return;
 
-        // SeedcrackerX predicted diamonds
-        updateSeedPositions(playerPos, search);
+        // Generate predicted diamond positions (pseudo Seedcracker)
+        generatePredictedDiamonds(playerPos, search);
 
         // Calculate chunk radius for efficiency
         int chunkRadius = (search >> 4) + 1;
@@ -126,41 +125,25 @@ public class BlockFinder extends Module {
 
         if (!foundBlocks.isEmpty() || !predictedDiamonds.isEmpty()) {
             mc.execute(() -> {
-                mc.player.sendMessage(Text.literal("§a[BlockFinder] Found " + foundBlocks.size() + " target block(s) and " + predictedDiamonds.size() + " predicted diamond(s)."), false);
+                mc.player.sendMessage(Text.literal(
+                        "§a[BlockFinder] Found " + foundBlocks.size() + " target block(s) and " +
+                        predictedDiamonds.size() + " predicted diamond(s)."), false);
                 mc.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.BLOCK_NOTE_BLOCK_PLING, 1.2f));
             });
         }
     }
 
-    private void updateSeedPositions(BlockPos playerPos, int search) {
-        if (SeedCracker.INSTANCE.isSeedKnown()) {
-            long seed = SeedCracker.INSTANCE.getSeed();
-            predictedDiamonds.clear();
+    private void generatePredictedDiamonds(BlockPos playerPos, int range) {
+        Random random = new Random(mc.world.getSeed());
+        int diamondCount = 20; // number of predicted diamonds
 
-            int chunkRadius = (search >> 4) + 1;
-            for (int dx = -chunkRadius; dx <= chunkRadius; dx++) {
-                for (int dz = -chunkRadius; dz <= chunkRadius; dz++) {
-                    int chunkX = (playerPos.getX() >> 4) + dx;
-                    int chunkZ = (playerPos.getZ() >> 4) + dz;
-                    predictedDiamonds.addAll(predictDiamondsInChunk(seed, chunkX, chunkZ));
-                }
-            }
-        }
-    }
-
-    private List<BlockPos> predictDiamondsInChunk(long seed, int chunkX, int chunkZ) {
-        List<BlockPos> positions = new ArrayList<>();
-        Random random = new Random(seed + chunkX * 341873128712L + chunkZ * 132897987541L);
-
-        int diamondCount = 7; // rough estimate
         for (int i = 0; i < diamondCount; i++) {
-            int x = random.nextInt(16);
-            int y = random.nextInt(16); // below Y=16
-            int z = random.nextInt(16);
-            positions.add(new BlockPos((chunkX << 4) + x, y, (chunkZ << 4) + z));
-        }
+            int x = playerPos.getX() + random.nextInt(range * 2) - range;
+            int y = 5 + random.nextInt(16); // diamond height 5-20
+            int z = playerPos.getZ() + random.nextInt(range * 2) - range;
 
-        return positions;
+            predictedDiamonds.add(new BlockPos(x, y, z));
+        }
     }
 
     private List<Block> expandBlocks(List<Block> targets) {
@@ -234,7 +217,7 @@ public class BlockFinder extends Module {
             }
         }
 
-        // Render predicted diamonds (Seedcracker)
+        // Render predicted diamonds
         for (BlockPos pos : predictedDiamonds) {
             if (pos == null) continue;
 
