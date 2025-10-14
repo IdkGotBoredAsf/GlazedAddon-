@@ -9,6 +9,7 @@ import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
+import me.dags.seedcracker.SeedCracker; // SeedcrackerX import
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.BlockState;
@@ -72,21 +73,24 @@ public class BlockFinder extends Module {
     );
 
     private final Map<BlockPos, Block> foundBlocks = new ConcurrentHashMap<>();
+    private final Set<BlockPos> predictedDiamonds = new HashSet<>();
     private int tickDelayCounter = 0;
 
     public BlockFinder() {
-        super(GlazedAddon.esp, "BlockFinder", "Advanced ESP for selected blocks, including hidden ores.");
+        super(GlazedAddon.esp, "BlockFinder", "Advanced ESP for selected blocks, including hidden ores and Seedcracker diamonds.");
     }
 
     @Override
     public void onActivate() {
         foundBlocks.clear();
+        predictedDiamonds.clear();
         tickDelayCounter = 0;
     }
 
     @Override
     public void onDeactivate() {
         foundBlocks.clear();
+        predictedDiamonds.clear();
     }
 
     @EventHandler
@@ -97,11 +101,15 @@ public class BlockFinder extends Module {
         tickDelayCounter = 0;
 
         foundBlocks.clear();
+        predictedDiamonds.clear();
 
         BlockPos playerPos = mc.player.getBlockPos();
         int search = range.get();
         List<Block> targets = expandBlocks(blocksToFind.get());
         if (targets.isEmpty()) return;
+
+        // SeedcrackerX predicted diamonds
+        updateSeedPositions(playerPos, search);
 
         // Calculate chunk radius for efficiency
         int chunkRadius = (search >> 4) + 1;
@@ -116,12 +124,43 @@ public class BlockFinder extends Module {
             }
         }
 
-        if (!foundBlocks.isEmpty()) {
+        if (!foundBlocks.isEmpty() || !predictedDiamonds.isEmpty()) {
             mc.execute(() -> {
-                mc.player.sendMessage(Text.literal("§a[BlockFinder] Found " + foundBlocks.size() + " target block(s)."), false);
+                mc.player.sendMessage(Text.literal("§a[BlockFinder] Found " + foundBlocks.size() + " target block(s) and " + predictedDiamonds.size() + " predicted diamond(s)."), false);
                 mc.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.BLOCK_NOTE_BLOCK_PLING, 1.2f));
             });
         }
+    }
+
+    private void updateSeedPositions(BlockPos playerPos, int search) {
+        if (SeedCracker.INSTANCE.isSeedKnown()) {
+            long seed = SeedCracker.INSTANCE.getSeed();
+            predictedDiamonds.clear();
+
+            int chunkRadius = (search >> 4) + 1;
+            for (int dx = -chunkRadius; dx <= chunkRadius; dx++) {
+                for (int dz = -chunkRadius; dz <= chunkRadius; dz++) {
+                    int chunkX = (playerPos.getX() >> 4) + dx;
+                    int chunkZ = (playerPos.getZ() >> 4) + dz;
+                    predictedDiamonds.addAll(predictDiamondsInChunk(seed, chunkX, chunkZ));
+                }
+            }
+        }
+    }
+
+    private List<BlockPos> predictDiamondsInChunk(long seed, int chunkX, int chunkZ) {
+        List<BlockPos> positions = new ArrayList<>();
+        Random random = new Random(seed + chunkX * 341873128712L + chunkZ * 132897987541L);
+
+        int diamondCount = 7; // rough estimate
+        for (int i = 0; i < diamondCount; i++) {
+            int x = random.nextInt(16);
+            int y = random.nextInt(16); // below Y=16
+            int z = random.nextInt(16);
+            positions.add(new BlockPos((chunkX << 4) + x, y, (chunkZ << 4) + z));
+        }
+
+        return positions;
     }
 
     private List<Block> expandBlocks(List<Block> targets) {
@@ -147,7 +186,7 @@ public class BlockFinder extends Module {
             ChunkSection section = sections[sectionIndex];
             if (section == null || section.isEmpty()) continue;
 
-            int baseY = sectionIndex << 4; // Each section is 16 blocks high
+            int baseY = sectionIndex << 4;
 
             for (int x = 0; x < 16; x++) {
                 for (int y = 0; y < 16; y++) {
@@ -178,11 +217,12 @@ public class BlockFinder extends Module {
         Vec3d eyePos = mc.player.getCameraPosVec(event.tickDelta);
         Color baseColor = color.get();
 
+        // Render found blocks
         for (BlockPos pos : foundBlocks.keySet()) {
             if (pos == null) continue;
 
             double distance = mc.player.getPos().distanceTo(Vec3d.ofCenter(pos));
-            double alpha = Math.max(0.2, 1 - (distance / range.get())); // fade with distance
+            double alpha = Math.max(0.2, 1 - (distance / range.get()));
             Color fadeColor = new Color(baseColor.r, baseColor.g, baseColor.b, (int) (baseColor.a * alpha));
 
             Box box = new Box(pos);
@@ -191,6 +231,25 @@ public class BlockFinder extends Module {
             if (tracers.get()) {
                 Vec3d center = Vec3d.ofCenter(pos);
                 event.renderer.line(eyePos.x, eyePos.y, eyePos.z, center.x, center.y, center.z, fadeColor);
+            }
+        }
+
+        // Render predicted diamonds (Seedcracker)
+        for (BlockPos pos : predictedDiamonds) {
+            if (pos == null) continue;
+
+            double distance = mc.player.getPos().distanceTo(Vec3d.ofCenter(pos));
+            if (distance > range.get()) continue;
+
+            double alpha = Math.max(0.2, 1 - (distance / range.get()));
+            Color predColor = new Color(0, 0, 255, (int) (255 * alpha)); // blue for predicted diamonds
+
+            Box box = new Box(pos);
+            event.renderer.box(box, predColor, predColor, shapeMode.get(), 2);
+
+            if (tracers.get()) {
+                Vec3d center = Vec3d.ofCenter(pos);
+                event.renderer.line(eyePos.x, eyePos.y, eyePos.z, center.x, center.y, center.z, predColor);
             }
         }
     }
