@@ -39,7 +39,6 @@ public class SeedCrackerESP extends Module {
         .build()
     );
 
-    // ✅ Fix 1: use SettingColor instead of Color
     private final Setting<SettingColor> color = sgGeneral.add(new ColorSetting.Builder()
         .name("color")
         .description("Color of predicted blocks.")
@@ -106,8 +105,8 @@ public class SeedCrackerESP extends Module {
 
         if (world == null) return predictions;
 
-        // ✅ Fix 2: CheckedRandom.create() → new CheckedRandom()
-        Random random = new Random(new CheckedRandom(
+        // ✅ Fixed: use Random.create(...) instead of trying to instantiate abstract Random
+        Random random = Random.create(new CheckedRandom(
             WORLD_SEED ^ ((long) chunk.getPos().x * 341873128712L)
                        ^ ((long) chunk.getPos().z * 132897987541L)
         ));
@@ -145,7 +144,6 @@ public class SeedCrackerESP extends Module {
     }
 
     private List<Block> getOresForBiome(RegistryKey<Biome> biome) {
-        // Simplified biome-ore mapping
         return List.of(
             Blocks.DIAMOND_ORE,
             Blocks.IRON_ORE,
