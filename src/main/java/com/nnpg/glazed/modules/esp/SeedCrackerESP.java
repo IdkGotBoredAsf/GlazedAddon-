@@ -6,7 +6,7 @@ import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.renderer.ShapeMode;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
-import meteordevelopment.meteorclient.utils.render.color.Color;
+import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
@@ -39,10 +39,11 @@ public class SeedCrackerESP extends Module {
         .build()
     );
 
-    private final Setting<Color> color = sgGeneral.add(new ColorSetting.Builder()
+    // ✅ Fix 1: use SettingColor instead of Color
+    private final Setting<SettingColor> color = sgGeneral.add(new ColorSetting.Builder()
         .name("color")
         .description("Color of predicted blocks.")
-        .defaultValue(new Color(255, 0, 0, 150))
+        .defaultValue(new SettingColor(255, 0, 0, 150))
         .build()
     );
 
@@ -58,7 +59,7 @@ public class SeedCrackerESP extends Module {
     // Fixed world seed
     private static final long WORLD_SEED = 6608149111735331168L;
 
-    // Caches predictions per chunk
+    // Cache predictions per chunk
     private final Map<Long, Map<Block, Set<Vec3d>>> chunkPredictions = new ConcurrentHashMap<>();
 
     public SeedCrackerESP() {
@@ -105,12 +106,19 @@ public class SeedCrackerESP extends Module {
 
         if (world == null) return predictions;
 
-        // Replacement for old ChunkRandom
-        Random random = Random.create(CheckedRandom.create(WORLD_SEED ^ ((long) chunk.getPos().x * 341873128712L) ^ ((long) chunk.getPos().z * 132897987541L)));
+        // ✅ Fix 2: CheckedRandom.create() → new CheckedRandom()
+        Random random = new Random(new CheckedRandom(
+            WORLD_SEED ^ ((long) chunk.getPos().x * 341873128712L)
+                       ^ ((long) chunk.getPos().z * 132897987541L)
+        ));
 
         Set<RegistryKey<Biome>> biomes = new HashSet<>();
         for (ChunkSection section : chunk.getSectionArray()) {
-            section.getBiomeContainer().forEachValue(entry -> biomes.add(entry.getKey().get()));
+            if (section != null && section.getBiomeContainer() != null) {
+                section.getBiomeContainer().forEachValue(entry -> {
+                    if (entry.getKey().isPresent()) biomes.add(entry.getKey().get());
+                });
+            }
         }
 
         // Get ores for biomes
@@ -138,7 +146,13 @@ public class SeedCrackerESP extends Module {
 
     private List<Block> getOresForBiome(RegistryKey<Biome> biome) {
         // Simplified biome-ore mapping
-        return List.of(Blocks.DIAMOND_ORE, Blocks.IRON_ORE, Blocks.COAL_ORE, Blocks.REDSTONE_ORE, Blocks.LAPIS_ORE);
+        return List.of(
+            Blocks.DIAMOND_ORE,
+            Blocks.IRON_ORE,
+            Blocks.COAL_ORE,
+            Blocks.REDSTONE_ORE,
+            Blocks.LAPIS_ORE
+        );
     }
 
     private int getOreHeight(Block ore, Random random) {
@@ -155,7 +169,7 @@ public class SeedCrackerESP extends Module {
         if (mc.player == null) return;
 
         Vec3d eye = mc.player.getCameraPosVec(event.tickDelta);
-        Color c = color.get();
+        SettingColor c = color.get();
 
         for (Map<Block, Set<Vec3d>> chunk : chunkPredictions.values()) {
             for (Set<Vec3d> positions : chunk.values()) {
