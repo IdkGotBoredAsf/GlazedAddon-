@@ -15,7 +15,6 @@ import net.minecraft.registry.RegistryKey;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.random.CheckedRandom;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.biome.Biome;
 import net.minecraft.world.chunk.Chunk;
@@ -55,10 +54,8 @@ public class SeedCrackerESP extends Module {
         .build()
     );
 
-    // Fixed world seed
     private static final long WORLD_SEED = 6608149111735331168L;
 
-    // Cache predictions per chunk
     private final Map<Long, Map<Block, Set<Vec3d>>> chunkPredictions = new ConcurrentHashMap<>();
 
     public SeedCrackerESP() {
@@ -105,28 +102,26 @@ public class SeedCrackerESP extends Module {
 
         if (world == null) return predictions;
 
-        // ✅ Fixed: use Random.create(...) instead of trying to instantiate abstract Random
-        Random random = Random.create(new CheckedRandom(
-            WORLD_SEED ^ ((long) chunk.getPos().x * 341873128712L)
-                       ^ ((long) chunk.getPos().z * 132897987541L)
-        ));
+        // ✅ Correct Random creation
+        long chunkSeed = WORLD_SEED ^ ((long) chunk.getPos().x * 341873128712L)
+                              ^ ((long) chunk.getPos().z * 132897987541L);
+        Random random = Random.create(chunkSeed);
 
         Set<RegistryKey<Biome>> biomes = new HashSet<>();
         for (ChunkSection section : chunk.getSectionArray()) {
             if (section != null && section.getBiomeContainer() != null) {
                 section.getBiomeContainer().forEachValue(entry -> {
-                    if (entry.getKey().isPresent()) biomes.add(entry.getKey().get());
+                    entry.getKey().ifPresent(biomes::add);
                 });
             }
         }
 
-        // Get ores for biomes
         Set<Block> ores = biomes.stream().flatMap(b -> getOresForBiome(b).stream()).collect(Collectors.toSet());
 
         for (Block ore : ores) {
             Set<Vec3d> positions = new HashSet<>();
 
-            int attempts = 5; // simplified number of veins per chunk
+            int attempts = 5;
             for (int i = 0; i < attempts; i++) {
                 int x = chunk.getPos().x * 16 + random.nextInt(16);
                 int z = chunk.getPos().z * 16 + random.nextInt(16);
@@ -172,7 +167,8 @@ public class SeedCrackerESP extends Module {
         for (Map<Block, Set<Vec3d>> chunk : chunkPredictions.values()) {
             for (Set<Vec3d> positions : chunk.values()) {
                 for (Vec3d pos : positions) {
-                    Box box = new Box(pos.x - 0.5, pos.y - 0.5, pos.z - 0.5, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5);
+                    Box box = new Box(pos.x - 0.5, pos.y - 0.5, pos.z - 0.5,
+                                      pos.x + 0.5, pos.y + 0.5, pos.z + 0.5);
                     event.renderer.box(box, c, c, shapeMode.get(), 1);
                     event.renderer.line(eye.x, eye.y, eye.z, pos.x, pos.y, pos.z, c);
                 }
