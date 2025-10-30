@@ -6,21 +6,21 @@ import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.renderer.ShapeMode;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
-import meteordevelopment.meteorclient.utils.Utils;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.registry.RegistryKey;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.random.CheckedRandom;
+import net.minecraft.util.math.random.Random;
+import net.minecraft.world.biome.Biome;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkSection;
-import net.minecraft.world.Heightmap;
-import net.minecraft.world.biome.Biome;
-import net.minecraft.world.chunk.ChunkRandom;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.client.world.ClientWorld;
+import net.minecraft.util.math.ChunkPos;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,28 +33,29 @@ public class SeedCrackerESP extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
     private final Setting<ShapeMode> shapeMode = sgGeneral.add(new EnumSetting.Builder<ShapeMode>()
-            .name("shape-mode")
-            .description("How the highlight boxes are rendered.")
-            .defaultValue(ShapeMode.Both)
-            .build()
+        .name("shape-mode")
+        .description("How the highlight boxes are rendered.")
+        .defaultValue(ShapeMode.Both)
+        .build()
     );
 
     private final Setting<Color> color = sgGeneral.add(new ColorSetting.Builder()
-            .name("color")
-            .description("Color of predicted blocks.")
-            .defaultValue(new Color(255, 0, 0, 150))
-            .build()
+        .name("color")
+        .description("Color of predicted blocks.")
+        .defaultValue(new Color(255, 0, 0, 150))
+        .build()
     );
 
     private final Setting<Integer> horizontalRadius = sgGeneral.add(new IntSetting.Builder()
-            .name("chunk-range")
-            .description("Number of chunks to predict around player.")
-            .defaultValue(5)
-            .min(1)
-            .max(10)
-            .build()
+        .name("chunk-range")
+        .description("Number of chunks to predict around player.")
+        .defaultValue(5)
+        .min(1)
+        .max(10)
+        .build()
     );
 
+    // Fixed world seed
     private static final long WORLD_SEED = 6608149111735331168L;
 
     // Caches predictions per chunk
@@ -104,8 +105,8 @@ public class SeedCrackerESP extends Module {
 
         if (world == null) return predictions;
 
-        ChunkRandom random = new ChunkRandom(ChunkRandom.RandomProvider.XOROSHIRO.create(0));
-        long populationSeed = random.setPopulationSeed(WORLD_SEED, chunk.getPos().x << 4, chunk.getPos().z << 4);
+        // Replacement for old ChunkRandom
+        Random random = Random.create(CheckedRandom.create(WORLD_SEED ^ ((long) chunk.getPos().x * 341873128712L) ^ ((long) chunk.getPos().z * 132897987541L)));
 
         Set<RegistryKey<Biome>> biomes = new HashSet<>();
         for (ChunkSection section : chunk.getSectionArray()) {
@@ -117,7 +118,6 @@ public class SeedCrackerESP extends Module {
 
         for (Block ore : ores) {
             Set<Vec3d> positions = new HashSet<>();
-            random.setDecoratorSeed(populationSeed, 0, 0); // basic seeding
 
             int attempts = 5; // simplified number of veins per chunk
             for (int i = 0; i < attempts; i++) {
@@ -141,7 +141,7 @@ public class SeedCrackerESP extends Module {
         return List.of(Blocks.DIAMOND_ORE, Blocks.IRON_ORE, Blocks.COAL_ORE, Blocks.REDSTONE_ORE, Blocks.LAPIS_ORE);
     }
 
-    private int getOreHeight(Block ore, ChunkRandom random) {
+    private int getOreHeight(Block ore, Random random) {
         if (ore == Blocks.DIAMOND_ORE) return random.nextInt(16) - 64;
         if (ore == Blocks.IRON_ORE) return random.nextInt(64);
         if (ore == Blocks.COAL_ORE) return random.nextInt(128);
