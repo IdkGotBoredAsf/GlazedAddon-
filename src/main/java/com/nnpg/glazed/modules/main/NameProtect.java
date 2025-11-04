@@ -3,21 +3,18 @@ package com.nnpg.glazed.modules.main;
 import com.nnpg.glazed.GlazedAddon;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.settings.*;
-import meteordevelopment.meteorclient.utils.network.ChatUtils;
-import meteordevelopment.orbit.EventHandler;
 import meteordevelopment.meteorclient.events.game.ReceiveMessageEvent;
-import meteordevelopment.meteorclient.events.render.RenderNametagEvent;
-import meteordevelopment.meteorclient.events.render.RenderEvent;
-import meteordevelopment.meteorclient.utils.render.color.Color;
+import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.text.MutableText;
+import meteordevelopment.meteorclient.utils.player.ChatUtils;
 
 /**
  * NameProtect - Replaces your real name with a custom alias client-side.
- * Works in chat, nametags, death messages, and player list (Tab).
+ * Works in chat, nametags, and player list (Tab).
  */
 public class NameProtect extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -43,13 +40,6 @@ public class NameProtect extends Module {
         .build()
     );
 
-    private final Setting<Boolean> hideDeathMessages = sgGeneral.add(new BoolSetting.Builder()
-        .name("hide-death-messages")
-        .description("Replaces your name in death messages client-side.")
-        .defaultValue(true)
-        .build()
-    );
-
     private final Setting<Boolean> hideTabList = sgGeneral.add(new BoolSetting.Builder()
         .name("hide-tab-list")
         .description("Replaces your name in the player list (Tab).")
@@ -69,38 +59,33 @@ public class NameProtect extends Module {
 
         String playerName = mc.player.getName().getString();
         String alias = fakeName.get();
-        String originalMsg = event.getMessage().getString();
+        String message = event.getMessage().getString();
 
-        // Covers normal + death messages
-        if ((hideOwnName.get() || hideDeathMessages.get()) && originalMsg.contains(playerName)) {
-            String replaced = originalMsg.replace(playerName, alias);
-            ChatUtils.sendClientMessage(replaced);
+        if (message.contains(playerName)) {
+            String replaced = message.replace(playerName, alias);
+            ChatUtils.sendMsg(replaced);
             event.cancel();
         }
     }
 
+    // Works in 1.21.4 - replaces nametag through the Entity itself
     @EventHandler
-    private void onNametag(RenderNametagEvent event) {
-        if (!hideNametag.get() || mc.player == null) return;
+    private void onTick(meteordevelopment.meteorclient.events.world.TickEvent.Post event) {
+        if (mc.player == null || !hideNametag.get()) return;
 
-        PlayerEntity entity = event.entity;
-        if (entity == mc.player) {
-            event.name = fakeName.get();
+        for (PlayerEntity player : mc.world.getPlayers()) {
+            if (player == mc.player) {
+                player.setCustomName(Text.literal(fakeName.get()));
+                player.setCustomNameVisible(true);
+            }
         }
-    }
 
-    @EventHandler
-    private void onRender(RenderEvent event) {
-        if (!hideTabList.get() || mc.player == null || mc.player.networkHandler == null) return;
-
-        String playerName = mc.player.getName().getString();
-        String alias = fakeName.get();
-
-        for (PlayerListEntry entry : mc.player.networkHandler.getPlayerList()) {
-            if (entry.getProfile().getName().equals(playerName)) {
-                MutableText newName = Text.literal(alias);
-                // Update display name client-side
-                entry.displayName(newName);
+        if (hideTabList.get() && mc.player.networkHandler != null) {
+            for (PlayerListEntry entry : mc.player.networkHandler.getPlayerList()) {
+                if (entry.getProfile().getName().equals(mc.player.getName().getString())) {
+                    MutableText alias = Text.literal(fakeName.get());
+                    entry.displayName(alias);
+                }
             }
         }
     }
