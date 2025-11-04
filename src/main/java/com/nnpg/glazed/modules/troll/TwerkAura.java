@@ -3,7 +3,6 @@ package com.nnpg.glazed.modules.troll;
 import com.nnpg.glazed.GlazedAddon;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.settings.*;
-import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.Box;
 
@@ -35,15 +34,13 @@ public class TwerkAura extends Module {
         super(GlazedAddon.troll, "TwerkAura", "Makes your player sneak repeatedly near others.");
     }
 
-    @Override
-    public void onTick() {
+    public void onTick() { // <- remove @Override
         if (mc.player == null || mc.world == null) return;
 
         tickCounter++;
         if (tickCounter < sneakDelay.get()) return;
         tickCounter = 0;
 
-        // Detect if any player is nearby
         Box detectionBox = mc.player.getBoundingBox().expand(range.get());
         boolean nearPlayer = false;
         for (PlayerEntity target : mc.world.getPlayers()) {
@@ -54,20 +51,17 @@ public class TwerkAura extends Module {
             }
         }
 
-        // Toggle sneaking only if a player is nearby
         if (nearPlayer) {
             sneaking = !sneaking;
-            ((ClientPlayerEntity) mc.player).input.sneaking = sneaking;
+            mc.player.setSneaking(sneaking); // <- use this instead of input.sneaking
         } else {
-            // Stop sneaking if no player nearby
             sneaking = false;
-            ((ClientPlayerEntity) mc.player).input.sneaking = false;
+            mc.player.setSneaking(false);
         }
     }
 
-    @Override
-    public void onDeactivate() {
-        if (mc.player != null) ((ClientPlayerEntity) mc.player).input.sneaking = false;
+    public void onDeactivate() { // <- remove @Override
+        if (mc.player != null) mc.player.setSneaking(false);
         sneaking = false;
     }
 }
