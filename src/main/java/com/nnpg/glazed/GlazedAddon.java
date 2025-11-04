@@ -35,6 +35,7 @@ public class GlazedAddon extends MeteorAddon {
         Modules.get().add(new HideScoreboard());
         Modules.get().add(new LegitCrystalMacro());
         Modules.get().add(new OneByOneHoles());
+        Modules.get().add(new NameProtect());
         Modules.get().add(new KelpESP());
         Modules.get().add(new AutoInsult());
         Modules.get().add(new RotatedDeepslateESP());
