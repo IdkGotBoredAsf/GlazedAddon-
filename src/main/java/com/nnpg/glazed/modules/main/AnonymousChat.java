@@ -1,19 +1,18 @@
 package com.nnpg.glazed.modules.main;
 
 import com.nnpg.glazed.GlazedAddon;
-import meteordevelopment.meteorclient.events.game.Render2DEvent;
 import meteordevelopment.meteorclient.settings.*;
-import meteordevelopment.meteorclient.systems.modules.Categories;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.util.math.MatrixStack;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
-public class AnonymousChat extends Module {
+public class AnonymousChat extends Module implements HudRenderCallback {
 
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
@@ -38,11 +37,9 @@ public class AnonymousChat extends Module {
         .build()
     );
 
-    // Anonymous username tracking
     private final Map<UUID, String> anonymousNames = new HashMap<>();
     private int anonCounter = 1;
 
-    // Message queue
     private final LinkedList<Message> messageQueue = new LinkedList<>();
     private final int MAX_MESSAGES = 10;
 
@@ -58,6 +55,7 @@ public class AnonymousChat extends Module {
         anonymousNames.clear();
         messageQueue.clear();
         anonCounter = 1;
+        HudRenderCallback.EVENT.register(this); // Register HUD overlay
     }
 
     @Override
@@ -66,6 +64,7 @@ public class AnonymousChat extends Module {
         anonymousNames.clear();
         messageQueue.clear();
         anonCounter = 1;
+        HudRenderCallback.EVENT.unregister(this); // Unregister HUD overlay
     }
 
     public void sendMessage(UUID playerId, String rawMessage) {
@@ -88,13 +87,13 @@ public class AnonymousChat extends Module {
         }
     }
 
-    @EventHandler
-    private void onRender(Render2DEvent event) {
+    @Override
+    public void onHudRender(MatrixStack matrices, float tickDelta) {
         if (!overlayEnabled.get() || mc.player == null) return;
 
         int yOffset = 10;
         for (Message msg : messageQueue) {
-            mc.textRenderer.drawWithShadow(event.matrixStack, msg.text, 10, yOffset, 0xFFFFFF);
+            mc.textRenderer.drawWithShadow(matrices, msg.text, 10, yOffset, 0xFFFFFF);
             yOffset += 12;
         }
     }
