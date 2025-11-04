@@ -24,8 +24,8 @@ public class RandomCoords extends Module {
     }
 
     private void generateRandomCoords() {
-        int worldLimit = 30000000;
-        int yLimit = 320;
+        int worldLimit = 30000000; // Minecraft world limits
+        int yLimit = 320; // Max build height
 
         fakeX = random.nextDouble() * 2 * worldLimit - worldLimit;
         fakeY = random.nextDouble() * yLimit;
