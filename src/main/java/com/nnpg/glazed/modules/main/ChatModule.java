@@ -1,7 +1,7 @@
 package com.nnpg.glazed.modules.main;
 
 import com.nnpg.glazed.GlazedAddon;
-import meteordevelopment.meteorclient.events.world.TickEvent;
+import meteordevelopment.meteorclient.events.render.Render2DEvent;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
@@ -35,10 +35,7 @@ public class ChatModule extends Module {
             .build()
     );
 
-    // Stores messages for display
     private final List<String> messageQueue = new ArrayList<>();
-
-    // Maps player UUIDs to anonymous names
     private final Map<UUID, String> playerNames = new HashMap<>();
     private int anonymousCounter = 1;
 
@@ -46,28 +43,19 @@ public class ChatModule extends Module {
         super(GlazedAddon.CATEGORY, "chat-module", "Anonymous chat module with overlay or normal Minecraft chat.");
     }
 
-    /**
-     * Sends a chat message (to others with the mod)
-     */
     public void sendMessage(String message) {
         if (mc.player == null || message.isEmpty()) return;
 
         String formattedMessage = formatMessage(message);
-
-        // Add locally first
         addMessageToQueue(mc.player.getUuid(), formattedMessage);
 
         if (!overlayChat.get()) {
             ChatUtils.info(playerPrefix(mc.player.getUuid()) + ": " + formattedMessage);
         }
 
-        // Send to other players via stub networking
         sendNetworkMessage(mc.player.getUuid(), formattedMessage);
     }
 
-    /**
-     * Formats message with timestamp if enabled
-     */
     private String formatMessage(String message) {
         if (showTimestamps.get()) {
             long timestamp = System.currentTimeMillis();
@@ -76,18 +64,12 @@ public class ChatModule extends Module {
         return message;
     }
 
-    /**
-     * Adds message to overlay queue
-     */
     private void addMessageToQueue(UUID senderUUID, String message) {
         String prefix = privateChat.get() ? "[Private]" : "[Public]";
         String anonName = getAnonymousName(senderUUID);
         messageQueue.add(prefix + " " + anonName + ": " + message);
     }
 
-    /**
-     * Get anonymous name for player
-     */
     private String getAnonymousName(UUID uuid) {
         return playerNames.computeIfAbsent(uuid, k -> "Player" + anonymousCounter++);
     }
@@ -96,9 +78,6 @@ public class ChatModule extends Module {
         return getAnonymousName(uuid);
     }
 
-    /**
-     * Render overlay chat box
-     */
     private void renderOverlay(MatrixStack matrices) {
         if (!overlayChat.get() || messageQueue.isEmpty()) return;
 
@@ -114,9 +93,6 @@ public class ChatModule extends Module {
         }
     }
 
-    /**
-     * Display queued messages in chat
-     */
     public void displayMessages() {
         for (String msg : messageQueue) {
             ChatUtils.info(msg);
@@ -137,26 +113,19 @@ public class ChatModule extends Module {
         anonymousCounter = 1;
     }
 
+    // Corrected Render2DEvent listener for Meteor 1.10.5
     @EventHandler
-    private void onRender(TickEvent.Render event) {
-        renderOverlay(event.matrices); // Correct variable for Meteor 1.10.5
+    private void onRender2D(Render2DEvent event) {
+        renderOverlay(event.matrixStack);
     }
 
-    // --- Networking Stub ---
-
-    /**
-     * Stub for sending a network message to other players
-     */
+    // --- Networking stub ---
     private void sendNetworkMessage(UUID senderUUID, String message) {
-        // TODO: Replace with real packet/network system
-        // For testing, we'll just simulate receiving the message locally
-        // In real implementation, send packet to server -> server forwards to other mod clients
+        // TODO: Replace with real networking code using Fabric SimpleChannel
+        // For testing, simulate receiving locally
         receiveNetworkMessage(senderUUID, message);
     }
 
-    /**
-     * Stub for receiving network messages
-     */
     public void receiveNetworkMessage(UUID senderUUID, String message) {
         addMessageToQueue(senderUUID, message);
     }
