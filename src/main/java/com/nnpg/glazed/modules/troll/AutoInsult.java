@@ -4,9 +4,8 @@ import com.nnpg.glazed.GlazedAddon;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.orbit.EventHandler;
-import meteordevelopment.meteorclient.events.packets.PacketEvent;
+import meteordevelopment.meteorclient.events.entity.living.LivingDeathEvent;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.network.packet.s2c.play.PlayerDeathS2CPacket;
 import net.minecraft.entity.player.PlayerEntity;
 
 import java.util.*;
@@ -36,26 +35,25 @@ public class AutoInsult extends Module {
     }
 
     @EventHandler
-    private void onPacketReceive(PacketEvent.Receive event) {
+    private void onLivingDeath(LivingDeathEvent event) {
         if (mc.player == null || mc.world == null) return;
 
-        if (event.packet instanceof PlayerDeathS2CPacket packet) {
-            List<String> customMessages = messages.get();
-            if (customMessages.isEmpty()) return;
+        // Only trigger for player deaths
+        if (!(event.getEntity() instanceof PlayerEntity target)) return;
 
-            // Get the dead player's name from the packet
-            String deadPlayerName = packet.getEntityName();
+        // Only trigger if local player dealt the final hit
+        if (event.getSource().getAttacker() != mc.player) return;
 
-            // Only send message if local player was involved in the kill
-            // Note: Some servers don't send attacker info in the packet
-            // You may need to adjust based on server behavior
-            String message = randomize.get()
-                    ? customMessages.get(random.nextInt(customMessages.size()))
-                    : customMessages.get(0);
+        List<String> customMessages = messages.get();
+        if (customMessages.isEmpty()) return;
 
-            message = message.replace("{player}", deadPlayerName);
+        String message = randomize.get()
+                ? customMessages.get(random.nextInt(customMessages.size()))
+                : customMessages.get(0);
 
-            mc.player.networkHandler.sendChatMessage(message);
-        }
+        // Replace {player} placeholder
+        message = message.replace("{player}", target.getEntityName());
+
+        mc.player.networkHandler.sendChatMessage(message);
     }
 }
