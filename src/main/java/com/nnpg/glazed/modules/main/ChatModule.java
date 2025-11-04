@@ -6,7 +6,7 @@ import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.network.PlayerListEntry;
+import net.minecraft.text.Text;
 
 import java.util.*;
 
@@ -43,7 +43,6 @@ public class ChatModule extends Module {
         super(GlazedAddon.CATEGORY, "chat-module", "Anonymous chat module with overlay or normal Minecraft chat.");
     }
 
-    // Send a chat message
     public void sendMessage(String message) {
         if (mc.player == null || message.isEmpty()) return;
 
@@ -79,7 +78,6 @@ public class ChatModule extends Module {
         return getAnonymousName(uuid);
     }
 
-    // Render overlay chat
     private void renderOverlay() {
         if (!overlayChat.get() || messageQueue.isEmpty()) return;
 
@@ -90,7 +88,7 @@ public class ChatModule extends Module {
                 messageQueue;
 
         for (String msg : latest) {
-            mc.textRenderer.drawWithShadow(msg, 10, y, 0xFFFFFF);
+            mc.textRenderer.drawWithShadow(Text.literal(msg), 10, y, 0xFFFFFF); // <-- use Text.literal
             y += 12;
         }
     }
@@ -115,16 +113,14 @@ public class ChatModule extends Module {
         anonymousCounter = 1;
     }
 
-    // Render2DEvent listener for Meteor 1.10.5
     @EventHandler
     private void onRender2D(Render2DEvent event) {
-        renderOverlay();
+        renderOverlay(); // no matrixStack, just render
     }
 
     // --- Networking stub ---
     private void sendNetworkMessage(UUID senderUUID, String message) {
-        // TODO: Replace with actual Fabric SimpleChannel networking
-        // For now, simulate receiving the message locally
+        // TODO: Replace with Fabric SimpleChannel networking
         receiveNetworkMessage(senderUUID, message);
     }
 
