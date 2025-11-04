@@ -5,16 +5,15 @@ import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.events.game.ReceiveMessageEvent;
 import meteordevelopment.orbit.EventHandler;
+import meteordevelopment.meteorclient.utils.player.ChatUtils;
+import meteordevelopment.meteorclient.events.world.TickEvent;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.Text;
-import net.minecraft.text.MutableText;
-import meteordevelopment.meteorclient.utils.player.ChatUtils;
 
 /**
  * NameProtect - Replaces your real name with a custom alias client-side.
- * Works in chat, nametags, and player list (Tab).
+ * Works in chat and nametags (client side only).
  */
 public class NameProtect extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -28,7 +27,7 @@ public class NameProtect extends Module {
 
     private final Setting<Boolean> hideOwnName = sgGeneral.add(new BoolSetting.Builder()
         .name("hide-own-name")
-        .description("Hides your real name in chat and GUI messages.")
+        .description("Replaces your real name in all chat messages.")
         .defaultValue(true)
         .build()
     );
@@ -40,52 +39,38 @@ public class NameProtect extends Module {
         .build()
     );
 
-    private final Setting<Boolean> hideTabList = sgGeneral.add(new BoolSetting.Builder()
-        .name("hide-tab-list")
-        .description("Replaces your name in the player list (Tab).")
-        .defaultValue(true)
-        .build()
-    );
-
     private final MinecraftClient mc = MinecraftClient.getInstance();
 
     public NameProtect() {
-        super(GlazedAddon.main, "name-protect", "Replaces your name with a custom alias client-side.");
+        // ✅ use correct category — replace `.main` with your actual existing one (misc, troll, etc.)
+        super(GlazedAddon.misc, "name-protect", "Replaces your name with a custom alias client-side.");
     }
 
+    // Replace player name in chat
     @EventHandler
     private void onChat(ReceiveMessageEvent event) {
         if (mc.player == null || !hideOwnName.get()) return;
 
-        String playerName = mc.player.getName().getString();
+        String realName = mc.player.getName().getString();
         String alias = fakeName.get();
         String message = event.getMessage().getString();
 
-        if (message.contains(playerName)) {
-            String replaced = message.replace(playerName, alias);
-            ChatUtils.sendMsg(replaced);
+        if (message.contains(realName)) {
+            // ChatUtils now expects Text
+            ChatUtils.sendMsg(Text.literal(message.replace(realName, alias)));
             event.cancel();
         }
     }
 
-    // Works in 1.21.4 - replaces nametag through the Entity itself
+    // Replace nametag every tick
     @EventHandler
-    private void onTick(meteordevelopment.meteorclient.events.world.TickEvent.Post event) {
+    private void onTick(TickEvent.Post event) {
         if (mc.player == null || !hideNametag.get()) return;
 
         for (PlayerEntity player : mc.world.getPlayers()) {
             if (player == mc.player) {
                 player.setCustomName(Text.literal(fakeName.get()));
                 player.setCustomNameVisible(true);
-            }
-        }
-
-        if (hideTabList.get() && mc.player.networkHandler != null) {
-            for (PlayerListEntry entry : mc.player.networkHandler.getPlayerList()) {
-                if (entry.getProfile().getName().equals(mc.player.getName().getString())) {
-                    MutableText alias = Text.literal(fakeName.get());
-                    entry.displayName(alias);
-                }
             }
         }
     }
