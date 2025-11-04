@@ -1,14 +1,11 @@
 package com.nnpg.glazed.modules.main;
 
 import com.nnpg.glazed.GlazedAddon;
-import meteordevelopment.meteorclient.events.world.TickEvent;
+import meteordevelopment.meteorclient.events.render.Render2DEvent;
 import meteordevelopment.meteorclient.settings.*;
-import meteordevelopment.meteorclient.systems.modules.Categories;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.ChatScreen;
 import net.minecraft.client.util.math.MatrixStack;
 
 import java.util.*;
@@ -134,10 +131,10 @@ public class ChatModule extends Module {
         anonymousCounter = 1;
     }
 
-    // Optional: listen for tick to render overlay
+    // Listen for render event to draw overlay
     @EventHandler
-    private void onTick(TickEvent.Render event) {
-        if (mc.currentScreen != null && overlayChat.get()) {
+    private void onRender(Render2DEvent event) {
+        if (overlayChat.get()) {
             renderOverlay(event.matrices);
         }
     }
