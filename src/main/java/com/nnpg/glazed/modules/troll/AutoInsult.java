@@ -33,22 +33,9 @@ public class AutoInsult extends Module {
         .build()
     );
 
-    private final Setting<Integer> delay = sgGeneral.add(new IntSetting.Builder()
-        .name("delay")
-        .description("Delay in ticks between sending messages after kills.")
-        .defaultValue(20) // 1 second
-        .min(0)
-        .sliderMax(200)
-        .build()
-    );
-
     private final MinecraftClient mc = MinecraftClient.getInstance();
     private final Random random = new Random();
-
-    // Track dead players to prevent multiple messages
     private final Set<UUID> deadPlayers = new HashSet<>();
-    // Delay timer for sending messages
-    private final Map<UUID, Integer> delayMap = new HashMap<>();
 
     public AutoInsult() {
         super(GlazedAddon.troll, "AutoInsult", "Sends custom funny messages after kills.");
@@ -61,43 +48,30 @@ public class AutoInsult extends Module {
         for (PlayerEntity player : mc.world.getPlayers()) {
             if (player == mc.player) continue;
 
-            UUID uuid = player.getUuid();
-
             // Player is dead and not already tracked
-            if (player.getHealth() <= 0) {
+            if (player.getHealth() <= 0 && !deadPlayers.contains(player.getUuid())) {
 
-                // Only send message if you dealt last damage
+                // Only send message if you dealt the last hit
                 if (player.getRecentDamageSource() != null && player.getRecentDamageSource().getAttacker() == mc.player) {
+                    List<String> customMessages = messages.get();
+                    if (!customMessages.isEmpty()) {
+                        String message = randomize.get()
+                                ? customMessages.get(random.nextInt(customMessages.size()))
+                                : customMessages.get(0);
 
-                    // Initialize timer if not already present
-                    delayMap.putIfAbsent(uuid, delay.get());
+                        // Replace {player} placeholder with actual player name
+                        message = message.replace("{player}", player.getName().getString());
 
-                    // Decrease timer
-                    int timer = delayMap.get(uuid);
-                    if (timer <= 0) {
-                        List<String> customMessages = messages.get();
-                        if (!customMessages.isEmpty()) {
-                            String message = randomize.get()
-                                    ? customMessages.get(random.nextInt(customMessages.size()))
-                                    : customMessages.get(0);
-
-                            // Replace {player} placeholder with actual player name
-                            message = message.replace("{player}", player.getName().getString());
-
-                            // Send message safely using Meteor's ChatUtils
-                            ChatUtils.sendPlayerMsg(message);
-                        }
-
-                        deadPlayers.add(uuid);
-                        delayMap.remove(uuid); // Reset delay after sending
-                    } else {
-                        delayMap.put(uuid, timer - 1);
+                        // Send message using Meteor’s ChatUtils (safe & reliable)
+                        ChatUtils.sendPlayerMsg(message);
                     }
+
+                    deadPlayers.add(player.getUuid());
                 }
-            } else {
-                // Player is alive, reset tracking and delay
-                deadPlayers.remove(uuid);
-                delayMap.remove(uuid);
+            } 
+            // Reset if they’re alive again
+            else if (player.getHealth() > 0) {
+                deadPlayers.remove(player.getUuid());
             }
         }
     }
