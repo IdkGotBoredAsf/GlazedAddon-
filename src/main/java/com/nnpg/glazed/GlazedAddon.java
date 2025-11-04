@@ -11,31 +11,21 @@ import meteordevelopment.orbit.EventHandler;
 
 import meteordevelopment.meteorclient.events.game.GameJoinedEvent;
 import meteordevelopment.meteorclient.events.game.GameLeftEvent;
-import meteordevelopment.meteorclient.MeteorClient;
 import net.minecraft.item.Items;
 import net.minecraft.item.ItemStack;
-import meteordevelopment.meteorclient.systems.modules.Category;
-
-
-
+import net.minecraft.block.Blocks;
 
 public class GlazedAddon extends MeteorAddon {
 
-public static final Category CATEGORY = new Category("MAIN", new ItemStack(Items.GRASS_BLOCK));
-public static final Category esp = new Category("TROJAN ESP ", new ItemStack(Items.AMETHYST_BLOCK));
-public static final Category pvp = new Category("TROJAN COMBAT", new ItemStack(Items.NETHERITE_SWORD));
-public static final Category troll = new Category("Troll");
-
-
-
-
+    public static final Category CATEGORY = new Category("MAIN", new ItemStack(Items.GRASS_BLOCK));
+    public static final Category esp = new Category("TROJAN ESP", new ItemStack(Items.AMETHYST_BLOCK));
+    public static final Category pvp = new Category("TROJAN COMBAT", new ItemStack(Items.NETHERITE_SWORD));
+    public static final Category troll = new Category("Troll", new ItemStack(Blocks.TNT));
 
     public static int MyScreenVERSION = 14;
 
     @Override
     public void onInitialize() {
-
-
 
         Modules.get().add(new SpawnerProtect()); //done
         Modules.get().add(new AntiTrap()); //done
@@ -72,7 +62,6 @@ public static final Category troll = new Category("Troll");
         Modules.get().add(new FakeScoreboard());
         Modules.get().add(new FreecamMining());
 
-
         MeteorClient.EVENT_BUS.subscribe(this);
     }
 
@@ -92,15 +81,10 @@ public static final Category troll = new Category("Troll");
         Modules.registerCategory(esp);
         Modules.registerCategory(pvp);
         Modules.registerCategory(troll);
-
-
-        //mc.setScreen(new MyScreen(GuiThemes.get()));
     }
 
     @Override
     public String getPackage() {
         return "com.nnpg.glazed";
     }
-
-
 }
