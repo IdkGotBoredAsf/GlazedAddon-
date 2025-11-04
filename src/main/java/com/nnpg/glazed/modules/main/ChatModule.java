@@ -1,14 +1,17 @@
 package com.nnpg.glazed.modules.main;
 
 import com.nnpg.glazed.GlazedAddon;
+import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Categories;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
-import net.minecraft.client.network.PlayerListEntry;
+import meteordevelopment.orbit.EventHandler;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.ingame.ChatScreen;
+import net.minecraft.client.util.math.MatrixStack;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class ChatModule extends Module {
 
@@ -16,41 +19,55 @@ public class ChatModule extends Module {
 
     private final Setting<Boolean> privateChat = sgGeneral.add(new BoolSetting.Builder()
         .name("private-chat")
-        .description("Toggle between private chat and public chat.")
+        .description("Toggle private vs public chat.")
+        .defaultValue(true)
+        .build()
+    );
+
+    private final Setting<Boolean> overlayChat = sgGeneral.add(new BoolSetting.Builder()
+        .name("overlay-chat")
+        .description("Display a chat box overlay in-game.")
         .defaultValue(true)
         .build()
     );
 
     private final Setting<Boolean> showTimestamps = sgGeneral.add(new BoolSetting.Builder()
         .name("show-timestamps")
-        .description("Display timestamps before messages.")
+        .description("Show timestamps in messages.")
         .defaultValue(true)
         .build()
     );
 
+    // Stores messages for display
     private final List<String> messageQueue = new ArrayList<>();
 
+    // Maps player UUIDs to anonymous names
+    private final Map<UUID, String> playerNames = new HashMap<>();
+    private int anonymousCounter = 1;
+
     public ChatModule() {
-        super(GlazedAddon.CATEGORY, "chat-module", "A module for game chat with private/public mode without revealing player names.");
+        super(GlazedAddon.CATEGORY, "chat-module", "Anonymous chat module with overlay or normal Minecraft chat.");
     }
 
     /**
-     * Send a message through the module
-     * @param message The message content
+     * Sends a chat message (to others with the mod)
      */
     public void sendMessage(String message) {
-        if (mc.player == null) return;
+        if (mc.player == null || message.isEmpty()) return;
 
         String formattedMessage = formatMessage(message);
-        if (privateChat.get()) {
-            sendPrivateMessage(formattedMessage);
+
+        if (overlayChat.get()) {
+            addMessageToQueue(mc.player.getUuid(), formattedMessage);
         } else {
-            sendPublicMessage(formattedMessage);
+            ChatUtils.info("[Private] " + formattedMessage);
         }
+
+        // TODO: Send message to server/other clients via networking system
     }
 
     /**
-     * Formats the message, adds timestamp if enabled
+     * Formats message with timestamp if enabled
      */
     private String formatMessage(String message) {
         if (showTimestamps.get()) {
@@ -61,28 +78,41 @@ public class ChatModule extends Module {
     }
 
     /**
-     * Sends the message in private mode
-     * Hides player names, only shows "Player" as sender
+     * Adds message to overlay queue
      */
-    private void sendPrivateMessage(String message) {
-        // Only show the message locally to self, or to trusted recipients via some system
-        // Here we'll just display it in your chat
-        ChatUtils.info("Player: " + message);
-        messageQueue.add("[Private] " + message);
+    private void addMessageToQueue(UUID senderUUID, String message) {
+        String anonName = getAnonymousName(senderUUID);
+        String prefix = privateChat.get() ? "[Private]" : "[Public]";
+        messageQueue.add(prefix + " " + anonName + ": " + message);
     }
 
     /**
-     * Sends the message in public mode
-     * Player names are anonymized
+     * Get anonymous name for player
      */
-    private void sendPublicMessage(String message) {
-        // Display message in chat without revealing the sender's real name
-        ChatUtils.info("Player: " + message);
-        messageQueue.add("[Public] " + message);
+    private String getAnonymousName(UUID uuid) {
+        return playerNames.computeIfAbsent(uuid, k -> "Player" + anonymousCounter++);
     }
 
     /**
-     * Display all queued messages
+     * Render overlay chat box
+     */
+    public void renderOverlay(MatrixStack matrices) {
+        if (!overlayChat.get() || messageQueue.isEmpty()) return;
+
+        int y = 20;
+        int maxMessages = 10;
+        List<String> latest = messageQueue.size() > maxMessages ?
+            messageQueue.subList(messageQueue.size() - maxMessages, messageQueue.size()) :
+            messageQueue;
+
+        for (String msg : latest) {
+            mc.textRenderer.drawWithShadow(matrices, msg, 10, y, 0xFFFFFF);
+            y += 12;
+        }
+    }
+
+    /**
+     * Display queued messages in chat
      */
     public void displayMessages() {
         for (String msg : messageQueue) {
@@ -100,5 +130,20 @@ public class ChatModule extends Module {
     public void onDeactivate() {
         ChatUtils.info("💬 Chat Module Deactivated!");
         messageQueue.clear();
+        playerNames.clear();
+        anonymousCounter = 1;
+    }
+
+    // Optional: listen for tick to render overlay
+    @EventHandler
+    private void onTick(TickEvent.Render event) {
+        if (mc.currentScreen != null && overlayChat.get()) {
+            renderOverlay(event.matrices);
+        }
+    }
+
+    // Placeholder for receiving a message from other mod users
+    public void receiveMessage(UUID senderUUID, String message) {
+        addMessageToQueue(senderUUID, message);
     }
 }
