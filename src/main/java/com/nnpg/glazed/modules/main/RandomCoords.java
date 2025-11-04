@@ -2,25 +2,19 @@ package com.nnpg.glazed.modules.main;
 
 import com.nnpg.glazed.GlazedAddon;
 import meteordevelopment.meteorclient.systems.modules.Module;
-import meteordevelopment.orbit.EventHandler;
-import meteordevelopment.meteorclient.events.world.TickEvent;
 
 import java.util.Random;
 
 public class RandomCoords extends Module {
     private final Random random = new Random();
+
     private double fakeX, fakeY, fakeZ;
 
     public RandomCoords() {
         super(GlazedAddon.CATEGORY, "random-coords", "Hides your real coordinates client-side.");
     }
 
-    @EventHandler
-    private void onTick(TickEvent.Post event) {
-        generateRandomCoords();
-    }
-
-    private void generateRandomCoords() {
+    public void generateRandomCoords() {
         int worldLimit = 30000000;
         int yLimit = 320;
 
