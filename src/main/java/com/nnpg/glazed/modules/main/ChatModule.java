@@ -6,7 +6,6 @@ import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.util.math.MatrixStack;
 
 import java.util.*;
 
@@ -35,10 +34,7 @@ public class ChatModule extends Module {
         .build()
     );
 
-    // Stores messages for display
     private final List<String> messageQueue = new ArrayList<>();
-
-    // Maps player UUIDs to anonymous names
     private final Map<UUID, String> playerNames = new HashMap<>();
     private int anonymousCounter = 1;
 
@@ -46,9 +42,6 @@ public class ChatModule extends Module {
         super(GlazedAddon.CATEGORY, "chat-module", "Anonymous chat module with overlay or normal Minecraft chat.");
     }
 
-    /**
-     * Sends a chat message (to others with the mod)
-     */
     public void sendMessage(String message) {
         if (mc.player == null || message.isEmpty()) return;
 
@@ -60,12 +53,9 @@ public class ChatModule extends Module {
             ChatUtils.info("[Private] " + formattedMessage);
         }
 
-        // TODO: Send message to server/other clients via networking system
+        // TODO: send to networked players
     }
 
-    /**
-     * Formats message with timestamp if enabled
-     */
     private String formatMessage(String message) {
         if (showTimestamps.get()) {
             long timestamp = System.currentTimeMillis();
@@ -74,26 +64,18 @@ public class ChatModule extends Module {
         return message;
     }
 
-    /**
-     * Adds message to overlay queue
-     */
     private void addMessageToQueue(UUID senderUUID, String message) {
         String anonName = getAnonymousName(senderUUID);
         String prefix = privateChat.get() ? "[Private]" : "[Public]";
         messageQueue.add(prefix + " " + anonName + ": " + message);
     }
 
-    /**
-     * Get anonymous name for player
-     */
     private String getAnonymousName(UUID uuid) {
         return playerNames.computeIfAbsent(uuid, k -> "Player" + anonymousCounter++);
     }
 
-    /**
-     * Render overlay chat box
-     */
-    public void renderOverlay(MatrixStack matrices) {
+    @EventHandler
+    private void onRender(Render2DEvent event) {
         if (!overlayChat.get() || messageQueue.isEmpty()) return;
 
         int y = 20;
@@ -103,14 +85,11 @@ public class ChatModule extends Module {
             messageQueue;
 
         for (String msg : latest) {
-            mc.textRenderer.drawWithShadow(matrices, msg, 10f, (float) y, 0xFFFFFF); // <-- FIX: use String
+            mc.textRenderer.drawWithShadow(msg, 10, y, 0xFFFFFF); // FIX: no MatrixStack, just String
             y += 12;
         }
     }
 
-    /**
-     * Display queued messages in chat
-     */
     public void displayMessages() {
         for (String msg : messageQueue) {
             ChatUtils.info(msg);
@@ -131,15 +110,6 @@ public class ChatModule extends Module {
         anonymousCounter = 1;
     }
 
-    // Listen for render event to draw overlay
-    @EventHandler
-    private void onRender(Render2DEvent event) {
-        if (overlayChat.get()) {
-            renderOverlay(event.matrices); // <-- FIX: use matrices
-        }
-    }
-
-    // Placeholder for receiving a message from other mod users
     public void receiveMessage(UUID senderUUID, String message) {
         addMessageToQueue(senderUUID, message);
     }
