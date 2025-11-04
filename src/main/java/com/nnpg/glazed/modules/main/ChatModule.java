@@ -7,6 +7,8 @@ import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.text.Text;
+import net.minecraft.client.font.TextRenderer;
 
 import java.util.*;
 
@@ -14,7 +16,6 @@ public class ChatModule extends Module {
 
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
-    // ------------------ Settings ------------------
     private final Setting<Boolean> privateChat = sgGeneral.add(new BoolSetting.Builder()
             .name("private-chat")
             .description("Toggle private vs public chat.")
@@ -36,10 +37,10 @@ public class ChatModule extends Module {
             .build()
     );
 
-    // ------------------ Internal State ------------------
     private final List<String> messageQueue = new ArrayList<>();
     private final Map<UUID, String> playerNames = new HashMap<>();
     private int anonymousCounter = 1;
+
     private final MinecraftClient mc = MinecraftClient.getInstance();
 
     public ChatModule() {
@@ -90,19 +91,19 @@ public class ChatModule extends Module {
         int y = 20;
         int maxMessages = 10;
 
-        // Display latest messages only
         List<String> latest = messageQueue.size() > maxMessages ?
                 messageQueue.subList(messageQueue.size() - maxMessages, messageQueue.size()) :
                 messageQueue;
 
+        TextRenderer textRenderer = mc.textRenderer;
+
         for (String msg : latest) {
-            // Fully compatible rendering in 1.21.4 using drawWithShadow
-            mc.textRenderer.drawWithShadow(msg, 10f, (float) y, 0xFFFFFF);
+            // Correct 1.21.4 rendering using Text.literal
+            textRenderer.drawWithShadow(Text.literal(msg), 10, y, 0xFFFFFF);
             y += 12;
         }
     }
 
-    // ------------------ Display Messages in Chat ------------------
     public void displayMessages() {
         for (String msg : messageQueue) ChatUtils.info(msg);
         messageQueue.clear();
@@ -124,21 +125,11 @@ public class ChatModule extends Module {
 
     // ------------------ Networking Stub ------------------
     private void sendNetworkMessage(UUID senderUUID, String message) {
-        // TODO: Replace with proper Fabric SimpleChannel networking
-        // Currently simulates network by direct receive
+        // Direct call to simulate network for now
         receiveNetworkMessage(senderUUID, message);
     }
 
     public void receiveNetworkMessage(UUID senderUUID, String message) {
         addMessageToQueue(senderUUID, message);
-    }
-
-    // ------------------ Extra Utilities ------------------
-    public void clearMessages() {
-        messageQueue.clear();
-    }
-
-    public List<String> getMessages() {
-        return new ArrayList<>(messageQueue);
     }
 }
