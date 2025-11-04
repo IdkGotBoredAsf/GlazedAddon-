@@ -24,7 +24,7 @@ public class GlazedAddon extends MeteorAddon {
 public static final Category CATEGORY = new Category("MAIN", new ItemStack(Items.GRASS_BLOCK));
 public static final Category esp = new Category("TROJAN ESP ", new ItemStack(Items.AMETHYST_BLOCK));
 public static final Category pvp = new Category("TROJAN COMBAT", new ItemStack(Items.NETHERITE_SWORD));
-public static final Category pvp = new Category("TROLL", new ItemStack(Items.TNT_BLOCK));
+public static final Category troll = new Category("TROLL", new ItemStack(Items.TNT_BLOCK));
 
 
 
