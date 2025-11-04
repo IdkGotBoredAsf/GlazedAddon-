@@ -66,5 +66,11 @@ public class RandomCoords extends Module {
     public double getFakeX() { return fakeX; }
     public double getFakeY() { return fakeY; }
     public double getFakeZ() { return fakeZ; }
-}
 
+    /**
+     * Utility to get a formatted string for display.
+     */
+    public String getFakeCoordsString() {
+        return String.format("X: %.0f Y: %.0f Z: %.0f", fakeX, fakeY, fakeZ);
+    }
+}
