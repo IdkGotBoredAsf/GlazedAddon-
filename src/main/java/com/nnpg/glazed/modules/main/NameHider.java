@@ -12,10 +12,10 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.Text;
 
 /**
- * NameProtect - Replaces your real name with a custom alias client-side.
+ * NameHider - Replaces your real name with a custom alias client-side.
  * Works in chat and nametags (client side only).
  */
-public class NameProtect extends Module {
+public class NameHider extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
     private final Setting<String> fakeName = sgGeneral.add(new StringSetting.Builder()
@@ -41,9 +41,9 @@ public class NameProtect extends Module {
 
     private final MinecraftClient mc = MinecraftClient.getInstance();
 
-    public NameProtect() {
-        // ✅ Correct category reference
-        super(GlazedAddon.CATEGORY, "name-protect", "Replaces your name with a custom alias client-side.");
+    public NameHider() {
+        // ✅ Use your Glazed category
+        super(GlazedAddon.CATEGORY, "name-hider", "Replaces your name with a custom alias client-side.");
     }
 
     // Replace player name in chat
