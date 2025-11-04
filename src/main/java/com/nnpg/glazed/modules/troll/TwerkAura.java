@@ -33,7 +33,7 @@ public class TwerkAura extends Module {
         super(GlazedAddon.troll, "TwerkAura", "Makes your player sneak repeatedly near others.");
     }
 
-    @Override
+    // Removed @Override
     public void onTick() {
         if (mc.player == null || mc.world == null) return;
 
@@ -51,7 +51,7 @@ public class TwerkAura extends Module {
         }
     }
 
-    @Override
+    // Removed @Override
     public void onDeactivate() {
         if (mc.player != null) mc.player.setSneaking(false);
     }
