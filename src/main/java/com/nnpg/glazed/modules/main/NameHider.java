@@ -12,7 +12,7 @@ import net.minecraft.text.Text;
 import java.util.Random;
 
 /**
- * NameHider - Hides your real name in chat and in-world.
+ * NameHider - Hides your real name client-side.
  * Two modes: Custom Name or Glitched Name.
  */
 public class NameHider extends Module {
@@ -20,7 +20,7 @@ public class NameHider extends Module {
 
     private final Setting<String> customName = sgGeneral.add(new StringSetting.Builder()
         .name("custom-name")
-        .description("Set a custom name to replace your real name.")
+        .description("Your name will be replaced with this text client-side.")
         .defaultValue("Player")
         .build()
     );
@@ -32,56 +32,73 @@ public class NameHider extends Module {
         .build()
     );
 
-    private final Setting<Boolean> hideNametag = sgGeneral.add(new BoolSetting.Builder()
-        .name("hide-nametag")
-        .description("Replaces your in-world nametag and third-person name with the chosen name.")
+    private final Setting<Boolean> hideChatName = sgGeneral.add(new BoolSetting.Builder()
+        .name("hide-chat-name")
+        .description("Hides your name in chat and death messages.")
         .defaultValue(true)
         .build()
     );
 
-    private final Setting<Boolean> hideChatName = sgGeneral.add(new BoolSetting.Builder()
-        .name("hide-chat-name")
-        .description("Replaces your name in all chat messages and death messages.")
+    private final Setting<Boolean> hideNametag = sgGeneral.add(new BoolSetting.Builder()
+        .name("hide-nametag")
+        .description("Hides your nametag and third-person name.")
         .defaultValue(true)
         .build()
     );
 
     private final MinecraftClient mc = MinecraftClient.getInstance();
     private final Random random = new Random();
+    private String username;
 
     public NameHider() {
         super(GlazedAddon.CATEGORY, "name-hider", "Hides your real name with a custom or glitched name.");
     }
 
-    // Replace player name in chat & death messages
+    @Override
+    public void onActivate() {
+        // Store your real username on activation
+        username = mc.getSession().getUsername();
+    }
+
+    /** Replace your real name with the custom/glitched name */
+    public String replaceName(String message) {
+        if (!isActive() || message == null) return message;
+        String replacement = glitchedName.get() ? generateGlitchedName(username.length()) : customName.get();
+        return message.replace(username, replacement);
+    }
+
+    /** Get the name that should be displayed client-side */
+    public String getDisplayName() {
+        if (!isActive()) return username;
+        return glitchedName.get() ? generateGlitchedName(username.length()) : customName.get();
+    }
+
+    /** Whether nametag should be hidden */
+    public boolean hideNametag() {
+        return isActive() && hideNametag.get();
+    }
+
+    /** Event: replace name in chat and death messages */
     @EventHandler
     private void onChat(ReceiveMessageEvent event) {
         if (mc.player == null || !hideChatName.get()) return;
-
-        String realName = mc.player.getName().getString();
-        String replacement = glitchedName.get() ? generateGlitchedName(realName.length()) : customName.get();
-        String message = event.getMessage().getString();
-
-        if (message.contains(realName)) message = message.replace(realName, replacement);
-
-        event.setMessage(Text.literal(message));
+        event.setMessage(Text.literal(replaceName(event.getMessage().getString())));
     }
 
-    // Replace nametag every tick (also affects third-person view)
+    /** Event: replace nametag and third-person name */
     @EventHandler
     private void onTick(meteordevelopment.meteorclient.events.world.TickEvent.Post event) {
-        if (mc.player == null || !hideNametag.get()) return;
+        if (mc.player == null || !hideNametag()) return;
 
         for (PlayerEntity player : mc.world.getPlayers()) {
             if (player == mc.player) {
-                String replacement = glitchedName.get() ? generateGlitchedName(player.getName().getString().length()) : customName.get();
-                player.setCustomName(Text.literal(replacement));
+                player.setCustomName(Text.literal(getDisplayName()));
                 player.setCustomNameVisible(true);
             }
         }
     }
 
-    // Helper method to generate a random glitched name
+    /** Generate a random glitched name of a given length */
     private String generateGlitchedName(int length) {
         String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?";
         StringBuilder sb = new StringBuilder();
