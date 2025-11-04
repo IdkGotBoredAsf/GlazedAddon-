@@ -3,8 +3,10 @@ package com.nnpg.glazed.modules.troll;
 import com.nnpg.glazed.GlazedAddon;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.settings.*;
+import net.minecraft.client.option.KeyBinding;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.Box;
+import org.lwjgl.glfw.GLFW;
 
 public class TwerkAura extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -33,7 +35,6 @@ public class TwerkAura extends Module {
         super(GlazedAddon.troll, "TwerkAura", "Makes your player sneak repeatedly near others.");
     }
 
-    // Removed @Override
     public void onTick() {
         if (mc.player == null || mc.world == null) return;
 
@@ -42,17 +43,21 @@ public class TwerkAura extends Module {
         tickCounter = 0;
 
         Box detectionBox = mc.player.getBoundingBox().expand(range.get());
+        boolean nearPlayer = false;
         for (PlayerEntity target : mc.world.getPlayers()) {
             if (target == mc.player) continue;
             if (target.getBoundingBox().intersects(detectionBox)) {
-                mc.player.setSneaking(!mc.player.isSneaking());
+                nearPlayer = true;
                 break;
             }
         }
+
+        // Toggle sneak key instead of setSneaking
+        KeyBinding sneakKey = mc.options.sneakKey;
+        sneakKey.setPressed(nearPlayer ? !sneakKey.isPressed() : false);
     }
 
-    // Removed @Override
     public void onDeactivate() {
-        if (mc.player != null) mc.player.setSneaking(false);
+        if (mc.player != null) mc.options.sneakKey.setPressed(false);
     }
 }
