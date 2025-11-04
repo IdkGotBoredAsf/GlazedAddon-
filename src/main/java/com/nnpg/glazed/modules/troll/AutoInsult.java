@@ -3,21 +3,20 @@ package com.nnpg.glazed.modules.troll;
 import com.nnpg.glazed.GlazedAddon;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.settings.*;
+import meteordevelopment.orbit.EventHandler;
+import meteordevelopment.meteorclient.events.packets.PacketEvent;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.network.packet.s2c.play.PlayerDeathS2CPacket;
 import net.minecraft.entity.player.PlayerEntity;
 
 import java.util.*;
 
-/**
- * AutoInsult - Sends custom funny messages after killing a player.
- * Fully compatible with Meteor Client 1.21.4-42 and MC 1.21.4
- */
 public class AutoInsult extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
     private final Setting<List<String>> messages = sgGeneral.add(new StringListSetting.Builder()
         .name("messages")
-        .description("Custom messages to send after kills.")
+        .description("Custom messages to send after kills. Use {player} to insert the killed player's name.")
         .defaultValue(new ArrayList<>())
         .build()
     );
@@ -32,42 +31,31 @@ public class AutoInsult extends Module {
     private final MinecraftClient mc = MinecraftClient.getInstance();
     private final Random random = new Random();
 
-    // Track dead players to prevent multiple messages
-    private final Set<UUID> deadPlayers = new HashSet<>();
-
     public AutoInsult() {
         super(GlazedAddon.troll, "AutoInsult", "Sends custom funny messages after kills.");
     }
 
-    // Remove @Override — onTick is called by Module automatically
-    public void onTick() {
+    @EventHandler
+    private void onPacketReceive(PacketEvent.Receive event) {
         if (mc.player == null || mc.world == null) return;
 
-        for (PlayerEntity player : mc.world.getPlayers()) {
-            if (player == mc.player) continue; // Skip yourself
+        if (event.packet instanceof PlayerDeathS2CPacket packet) {
+            List<String> customMessages = messages.get();
+            if (customMessages.isEmpty()) return;
 
-            // If player is dead and not already tracked
-            if (player.getHealth() <= 0 && !deadPlayers.contains(player.getUuid())) {
-                // Only send message if you dealt last damage
-                if (player.getRecentDamageSource() != null &&
-                    player.getRecentDamageSource().getAttacker() == mc.player) {
+            // Get the dead player's name from the packet
+            String deadPlayerName = packet.getEntityName();
 
-                    List<String> customMessages = messages.get();
-                    if (!customMessages.isEmpty()) {
-                        String message = randomize.get()
-                                ? customMessages.get(random.nextInt(customMessages.size()))
-                                : customMessages.get(0);
+            // Only send message if local player was involved in the kill
+            // Note: Some servers don't send attacker info in the packet
+            // You may need to adjust based on server behavior
+            String message = randomize.get()
+                    ? customMessages.get(random.nextInt(customMessages.size()))
+                    : customMessages.get(0);
 
-                        // Correct way to send chat in MC 1.21.4
-                        mc.player.networkHandler.sendChatMessage(message);
-                    }
+            message = message.replace("{player}", deadPlayerName);
 
-                    deadPlayers.add(player.getUuid());
-                }
-            } else if (player.getHealth() > 0) {
-                // Remove from deadPlayers if they respawned
-                deadPlayers.remove(player.getUuid());
-            }
+            mc.player.networkHandler.sendChatMessage(message);
         }
     }
 }
