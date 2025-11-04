@@ -9,7 +9,6 @@ import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.TextLayerType;
 import net.minecraft.text.Text;
 
 import java.util.*;
@@ -100,6 +99,7 @@ public class ChatModule extends Module {
                 messageQueue;
 
         for (String msg : latest) {
+            // MC 1.21.4 compatible draw call
             mc.textRenderer.draw(
                     Text.literal(msg),
                     10f,
@@ -108,12 +108,11 @@ public class ChatModule extends Module {
                     true,
                     matrices.peek().getPositionMatrix(),
                     provider,
-                    TextLayerType.NORMAL,
-                    0,
                     15728880
             );
             y += 12;
         }
+
         provider.draw();
     }
 
@@ -141,7 +140,7 @@ public class ChatModule extends Module {
 
     private void sendNetworkMessage(UUID senderUUID, String message) {
         // TODO: Implement real networking with Fabric SimpleChannel
-        // For now, directly call receive to simulate network
+        // For now, simulate network locally
         receiveNetworkMessage(senderUUID, message);
     }
 
