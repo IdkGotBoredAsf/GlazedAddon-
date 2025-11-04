@@ -6,7 +6,7 @@ import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.text.Text;
+import net.minecraft.client.MinecraftClient;
 
 import java.util.*;
 
@@ -38,6 +38,8 @@ public class ChatModule extends Module {
     private final List<String> messageQueue = new ArrayList<>();
     private final Map<UUID, String> playerNames = new HashMap<>();
     private int anonymousCounter = 1;
+
+    private final MinecraftClient mc = MinecraftClient.getInstance();
 
     public ChatModule() {
         super(GlazedAddon.CATEGORY, "chat-module", "Anonymous chat module with overlay or normal Minecraft chat.");
@@ -88,16 +90,9 @@ public class ChatModule extends Module {
                 messageQueue;
 
         for (String msg : latest) {
-            mc.textRenderer.drawWithShadow(Text.literal(msg), 10, y, 0xFFFFFF); // <-- use Text.literal
+            mc.textRenderer.draw(msg, 10, y, 0xFFFFFF, true); // <-- Correct for MC 1.21.4
             y += 12;
         }
-    }
-
-    public void displayMessages() {
-        for (String msg : messageQueue) {
-            ChatUtils.info(msg);
-        }
-        messageQueue.clear();
     }
 
     @Override
@@ -115,16 +110,25 @@ public class ChatModule extends Module {
 
     @EventHandler
     private void onRender2D(Render2DEvent event) {
-        renderOverlay(); // no matrixStack, just render
+        renderOverlay();
     }
 
     // --- Networking stub ---
     private void sendNetworkMessage(UUID senderUUID, String message) {
-        // TODO: Replace with Fabric SimpleChannel networking
+        // TODO: Implement Fabric SimpleChannel or Meteor-compatible networking
+        // For now, loopback
         receiveNetworkMessage(senderUUID, message);
     }
 
     public void receiveNetworkMessage(UUID senderUUID, String message) {
         addMessageToQueue(senderUUID, message);
+    }
+
+    // Optional: display all messages in normal chat
+    public void displayMessages() {
+        for (String msg : messageQueue) {
+            ChatUtils.info(msg);
+        }
+        messageQueue.clear();
     }
 }
