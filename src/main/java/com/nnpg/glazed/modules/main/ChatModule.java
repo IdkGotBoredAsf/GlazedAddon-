@@ -7,7 +7,6 @@ import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.text.Text;
 
 import java.util.*;
 
@@ -104,7 +103,7 @@ public class ChatModule extends Module {
             messageQueue;
 
         for (String msg : latest) {
-            mc.textRenderer.drawWithShadow(matrices, Text.literal(msg), 10f, (float)y, 0xFFFFFF);
+            mc.textRenderer.drawWithShadow(matrices, msg, 10f, (float) y, 0xFFFFFF); // <-- FIX: use String
             y += 12;
         }
     }
@@ -136,7 +135,7 @@ public class ChatModule extends Module {
     @EventHandler
     private void onRender(Render2DEvent event) {
         if (overlayChat.get()) {
-            renderOverlay(event.matrixStack);
+            renderOverlay(event.matrices); // <-- FIX: use matrices
         }
     }
 
