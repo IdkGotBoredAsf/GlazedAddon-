@@ -1,4 +1,4 @@
-package com.nnpg.glazed.modules.troll; // <- updated package
+package com.nnpg.glazed.modules.troll;
 
 import com.nnpg.glazed.GlazedAddon;
 import meteordevelopment.meteorclient.systems.modules.Module;
