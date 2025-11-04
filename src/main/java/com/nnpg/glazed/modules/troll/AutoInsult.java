@@ -4,9 +4,8 @@ import com.nnpg.glazed.GlazedAddon;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.orbit.EventHandler;
-import meteordevelopment.meteorclient.events.entity.living.LivingDeathEvent;
+import meteordevelopment.meteorclient.events.entity.player.PostAttackEvent;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.player.PlayerEntity;
 
 import java.util.ArrayList;
@@ -15,6 +14,7 @@ import java.util.Random;
 
 /**
  * AutoInsult - Sends custom funny messages after killing a player.
+ * Fully compatible with Meteor Client 1.21.4
  */
 public class AutoInsult extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -41,20 +41,19 @@ public class AutoInsult extends Module {
     }
 
     @EventHandler
-    private void onPlayerDeath(LivingDeathEvent event) {
+    private void onPostAttack(PostAttackEvent event) {
         if (mc.player == null || mc.world == null) return;
 
-        // Only trigger for player deaths
-        if (!(event.getEntity() instanceof PlayerEntity)) return;
+        // Only target other players
+        if (!(event.target instanceof PlayerEntity targetPlayer)) return;
 
-        // Only trigger if the killer is the local player
-        DamageSource source = event.getSource();
-        if (source.getAttacker() != mc.player) return;
+        // Only trigger if the attack killed the player
+        if (targetPlayer.getHealth() > 0) return;
 
         List<String> customMessages = messages.get();
         if (customMessages.isEmpty()) return;
 
-        // Pick the message
+        // Pick a message
         String messageToSend = randomize.get()
             ? customMessages.get(random.nextInt(customMessages.size()))
             : customMessages.get(0);
