@@ -62,7 +62,7 @@ public class GlazedAddon extends MeteorAddon {
         Modules.get().add(new FakeScoreboard());
         Modules.get().add(new FreecamMining());
 
-        MeteorClient.EVENT_BUS.subscribe(this);
+    
     }
 
     @EventHandler
