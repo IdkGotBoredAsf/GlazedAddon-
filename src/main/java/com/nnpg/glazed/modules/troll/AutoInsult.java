@@ -40,7 +40,7 @@ public class AutoInsult extends Module {
         super(GlazedAddon.troll, "AutoInsult", "Sends custom funny messages after kills.");
     }
 
-    @Override
+    // Removed @Override — called automatically by Module
     public void onTick() {
         if (mc.player == null || mc.world == null) return;
 
@@ -57,7 +57,7 @@ public class AutoInsult extends Module {
                             : customMessages.get(0);
 
                     // Replace {player} with the killed player's name
-                    message = message.replace("{player}", player.getEntityName());
+                    message = message.replace("{player}", player.getName().getString());
 
                     // Send chat message
                     mc.player.networkHandler.sendChatMessage(message);
