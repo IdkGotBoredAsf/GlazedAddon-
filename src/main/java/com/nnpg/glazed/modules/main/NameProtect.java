@@ -42,8 +42,8 @@ public class NameProtect extends Module {
     private final MinecraftClient mc = MinecraftClient.getInstance();
 
     public NameProtect() {
-        // ✅ use correct category — replace `.main` with your actual existing one (misc, troll, etc.)
-        super(GlazedAddon.misc, "name-protect", "Replaces your name with a custom alias client-side.");
+        // ✅ Correct category reference
+        super(GlazedAddon.CATEGORY, "name-protect", "Replaces your name with a custom alias client-side.");
     }
 
     // Replace player name in chat
@@ -56,7 +56,7 @@ public class NameProtect extends Module {
         String message = event.getMessage().getString();
 
         if (message.contains(realName)) {
-            // ChatUtils now expects Text
+            // ChatUtils expects a Text object
             ChatUtils.sendMsg(Text.literal(message.replace(realName, alias)));
             event.cancel();
         }
