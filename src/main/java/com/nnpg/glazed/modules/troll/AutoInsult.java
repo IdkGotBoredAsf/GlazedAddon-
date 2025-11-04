@@ -4,8 +4,10 @@ import com.nnpg.glazed.GlazedAddon;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.orbit.EventHandler;
-import meteordevelopment.meteorclient.events.entity.player.KillEvent;
+import meteordevelopment.meteorclient.events.entity.living.LivingDeathEvent;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.player.PlayerEntity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,19 +41,23 @@ public class AutoInsult extends Module {
     }
 
     @EventHandler
-    private void onKill(KillEvent event) {
+    private void onPlayerDeath(LivingDeathEvent event) {
         if (mc.player == null || mc.world == null) return;
-        if (!(event.target instanceof net.minecraft.entity.player.PlayerEntity)) return;
+
+        // Only trigger for player deaths
+        if (!(event.getEntity() instanceof PlayerEntity)) return;
+
+        // Only trigger if the killer is the local player
+        DamageSource source = event.getSource();
+        if (source.getAttacker() != mc.player) return;
 
         List<String> customMessages = messages.get();
         if (customMessages.isEmpty()) return;
 
-        String messageToSend;
-        if (randomize.get()) {
-            messageToSend = customMessages.get(random.nextInt(customMessages.size()));
-        } else {
-            messageToSend = customMessages.get(0); // send the first message if randomize is false
-        }
+        // Pick the message
+        String messageToSend = randomize.get()
+            ? customMessages.get(random.nextInt(customMessages.size()))
+            : customMessages.get(0);
 
         mc.player.sendChatMessage(messageToSend);
     }
