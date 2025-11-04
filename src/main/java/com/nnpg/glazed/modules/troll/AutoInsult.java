@@ -10,7 +10,7 @@ import java.util.*;
 
 /**
  * AutoInsult - Sends custom funny messages after killing a player.
- * Works with Meteor Client 1.21.4-42
+ * Fully compatible with Meteor Client 1.21.4-42 and MC 1.21.4
  */
 public class AutoInsult extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -39,7 +39,7 @@ public class AutoInsult extends Module {
         super(GlazedAddon.troll, "AutoInsult", "Sends custom funny messages after kills.");
     }
 
-    @Override
+    // Remove @Override — onTick is called by Module automatically
     public void onTick() {
         if (mc.player == null || mc.world == null) return;
 
@@ -57,7 +57,9 @@ public class AutoInsult extends Module {
                         String message = randomize.get()
                                 ? customMessages.get(random.nextInt(customMessages.size()))
                                 : customMessages.get(0);
-                        mc.player.sendChatMessage(message);
+
+                        // Correct way to send chat in MC 1.21.4
+                        mc.player.networkHandler.sendChatMessage(message);
                     }
 
                     deadPlayers.add(player.getUuid());
