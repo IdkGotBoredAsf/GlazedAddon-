@@ -1,14 +1,12 @@
 package com.nnpg.glazed.modules.main;
 
 import com.nnpg.glazed.GlazedAddon;
-import meteordevelopment.meteorclient.events.render.Render2DEvent;
 import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.text.Text;
 
 import java.util.*;
 
@@ -17,27 +15,27 @@ public class ChatModule extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
     private final Setting<Boolean> privateChat = sgGeneral.add(new BoolSetting.Builder()
-        .name("private-chat")
-        .description("Toggle between private and public chat.")
-        .defaultValue(true)
-        .build()
+            .name("private-chat")
+            .description("Toggle private vs public chat.")
+            .defaultValue(true)
+            .build()
     );
 
     private final Setting<Boolean> overlayChat = sgGeneral.add(new BoolSetting.Builder()
-        .name("overlay-chat")
-        .description("Display a chat box overlay in-game.")
-        .defaultValue(true)
-        .build()
+            .name("overlay-chat")
+            .description("Display a chat box overlay in-game.")
+            .defaultValue(true)
+            .build()
     );
 
     private final Setting<Boolean> showTimestamps = sgGeneral.add(new BoolSetting.Builder()
-        .name("show-timestamps")
-        .description("Show timestamps in messages.")
-        .defaultValue(true)
-        .build()
+            .name("show-timestamps")
+            .description("Show timestamps in messages.")
+            .defaultValue(true)
+            .build()
     );
 
-    // Stores messages to display
+    // Stores messages for display
     private final List<String> messageQueue = new ArrayList<>();
 
     // Maps player UUIDs to anonymous names
@@ -49,20 +47,22 @@ public class ChatModule extends Module {
     }
 
     /**
-     * Sends a chat message to other mod users
+     * Sends a chat message (to others with the mod)
      */
     public void sendMessage(String message) {
         if (mc.player == null || message.isEmpty()) return;
 
         String formattedMessage = formatMessage(message);
 
-        if (overlayChat.get()) {
-            addMessageToQueue(mc.player.getUuid(), formattedMessage);
-        } else {
-            ChatUtils.info("[Private] " + formattedMessage);
+        // Add locally first
+        addMessageToQueue(mc.player.getUuid(), formattedMessage);
+
+        if (!overlayChat.get()) {
+            ChatUtils.info(playerPrefix(mc.player.getUuid()) + ": " + formattedMessage);
         }
 
-        // TODO: Implement networking to send this message to other clients
+        // Send to other players via stub networking
+        sendNetworkMessage(mc.player.getUuid(), formattedMessage);
     }
 
     /**
@@ -77,23 +77,27 @@ public class ChatModule extends Module {
     }
 
     /**
-     * Adds a message to the overlay queue
+     * Adds message to overlay queue
      */
     private void addMessageToQueue(UUID senderUUID, String message) {
-        String anonName = getAnonymousName(senderUUID);
         String prefix = privateChat.get() ? "[Private]" : "[Public]";
+        String anonName = getAnonymousName(senderUUID);
         messageQueue.add(prefix + " " + anonName + ": " + message);
     }
 
     /**
-     * Returns anonymous name for a player
+     * Get anonymous name for player
      */
     private String getAnonymousName(UUID uuid) {
         return playerNames.computeIfAbsent(uuid, k -> "Player" + anonymousCounter++);
     }
 
+    private String playerPrefix(UUID uuid) {
+        return getAnonymousName(uuid);
+    }
+
     /**
-     * Display messages in overlay
+     * Render overlay chat box
      */
     private void renderOverlay(MatrixStack matrices) {
         if (!overlayChat.get() || messageQueue.isEmpty()) return;
@@ -101,17 +105,17 @@ public class ChatModule extends Module {
         int y = 20;
         int maxMessages = 10;
         List<String> latest = messageQueue.size() > maxMessages ?
-            messageQueue.subList(messageQueue.size() - maxMessages, messageQueue.size()) :
-            messageQueue;
+                messageQueue.subList(messageQueue.size() - maxMessages, messageQueue.size()) :
+                messageQueue;
 
         for (String msg : latest) {
-            mc.textRenderer.drawWithShadow(Text.literal(msg), 10f, (float)y, 0xFFFFFF);
+            mc.textRenderer.drawWithShadow(msg, 10f, (float) y, 0xFFFFFF);
             y += 12;
         }
     }
 
     /**
-     * Display queued messages in Minecraft chat
+     * Display queued messages in chat
      */
     public void displayMessages() {
         for (String msg : messageQueue) {
@@ -133,14 +137,27 @@ public class ChatModule extends Module {
         anonymousCounter = 1;
     }
 
-    // Render overlay during 2D render events
     @EventHandler
-    private void onRender(Render2DEvent event) {
-        renderOverlay(event.matrixStack);
+    private void onRender(TickEvent.Render event) {
+        renderOverlay(event.matrices); // Correct variable for Meteor 1.10.5
     }
 
-    // Placeholder for receiving messages from other mod users
-    public void receiveMessage(UUID senderUUID, String message) {
+    // --- Networking Stub ---
+
+    /**
+     * Stub for sending a network message to other players
+     */
+    private void sendNetworkMessage(UUID senderUUID, String message) {
+        // TODO: Replace with real packet/network system
+        // For testing, we'll just simulate receiving the message locally
+        // In real implementation, send packet to server -> server forwards to other mod clients
+        receiveNetworkMessage(senderUUID, message);
+    }
+
+    /**
+     * Stub for receiving network messages
+     */
+    public void receiveNetworkMessage(UUID senderUUID, String message) {
         addMessageToQueue(senderUUID, message);
     }
 }
