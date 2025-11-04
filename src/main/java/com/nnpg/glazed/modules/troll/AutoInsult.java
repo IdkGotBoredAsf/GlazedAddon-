@@ -3,18 +3,14 @@ package com.nnpg.glazed.modules.troll;
 import com.nnpg.glazed.GlazedAddon;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.settings.*;
-import meteordevelopment.orbit.EventHandler;
-import meteordevelopment.meteorclient.events.entity.player.PostAttackEvent;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerEntity;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 /**
  * AutoInsult - Sends custom funny messages after killing a player.
- * Fully compatible with Meteor Client 1.21.4
+ * Works with Meteor Client 1.21.4-42
  */
 public class AutoInsult extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -36,28 +32,40 @@ public class AutoInsult extends Module {
     private final MinecraftClient mc = MinecraftClient.getInstance();
     private final Random random = new Random();
 
+    // Track dead players to prevent multiple messages
+    private final Set<UUID> deadPlayers = new HashSet<>();
+
     public AutoInsult() {
         super(GlazedAddon.troll, "AutoInsult", "Sends custom funny messages after kills.");
     }
 
-    @EventHandler
-    private void onPostAttack(PostAttackEvent event) {
+    @Override
+    public void onTick() {
         if (mc.player == null || mc.world == null) return;
 
-        // Only target other players
-        if (!(event.target instanceof PlayerEntity targetPlayer)) return;
+        for (PlayerEntity player : mc.world.getPlayers()) {
+            if (player == mc.player) continue; // Skip yourself
 
-        // Only trigger if the attack killed the player
-        if (targetPlayer.getHealth() > 0) return;
+            // If player is dead and not already tracked
+            if (player.getHealth() <= 0 && !deadPlayers.contains(player.getUuid())) {
+                // Only send message if you dealt last damage
+                if (player.getRecentDamageSource() != null &&
+                    player.getRecentDamageSource().getAttacker() == mc.player) {
 
-        List<String> customMessages = messages.get();
-        if (customMessages.isEmpty()) return;
+                    List<String> customMessages = messages.get();
+                    if (!customMessages.isEmpty()) {
+                        String message = randomize.get()
+                                ? customMessages.get(random.nextInt(customMessages.size()))
+                                : customMessages.get(0);
+                        mc.player.sendChatMessage(message);
+                    }
 
-        // Pick a message
-        String messageToSend = randomize.get()
-            ? customMessages.get(random.nextInt(customMessages.size()))
-            : customMessages.get(0);
-
-        mc.player.sendChatMessage(messageToSend);
+                    deadPlayers.add(player.getUuid());
+                }
+            } else if (player.getHealth() > 0) {
+                // Remove from deadPlayers if they respawned
+                deadPlayers.remove(player.getUuid());
+            }
+        }
     }
 }
