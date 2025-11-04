@@ -48,6 +48,7 @@ public static final Category pvp = new Category("TROLL", new ItemStack(Items.TNT
         Modules.get().add(new RotatedDeepslateESP());
         Modules.get().add(new VillagerESP());
         Modules.get().add(new TpaMacro());
+        Modules.get().add(new TwerkAura());
         Modules.get().add(new PillagerESP());
         Modules.get().add(new HoleTunnelStairsESP());
         Modules.get().add(new CoveredHole());
