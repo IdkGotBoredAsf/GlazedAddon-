@@ -1,14 +1,13 @@
 package com.nnpg.glazed.modules.main;
 
 import com.nnpg.glazed.GlazedAddon;
-import meteordevelopment.meteorclient.events.world.TickEvent;
+import meteordevelopment.meteorclient.events.game.Render2DEvent;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Categories;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.text.Text;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -69,9 +68,6 @@ public class AnonymousChat extends Module {
         anonCounter = 1;
     }
 
-    /**
-     * Call this to send a new message from a player
-     */
     public void sendMessage(UUID playerId, String rawMessage) {
         String anonName = anonymousNames.computeIfAbsent(playerId, id -> "Player" + (anonCounter++));
         boolean isPrivate = privateMode.get();
@@ -85,9 +81,6 @@ public class AnonymousChat extends Module {
         }
     }
 
-    /**
-     * Adds message to queue and removes old ones
-     */
     private void enqueueMessage(String msg) {
         messageQueue.addLast(new Message(msg));
         if (messageQueue.size() > MAX_MESSAGES) {
@@ -95,23 +88,17 @@ public class AnonymousChat extends Module {
         }
     }
 
-    /**
-     * Draws the overlay in-game
-     */
     @EventHandler
-    private void onTick(TickEvent.Render event) {
+    private void onRender(Render2DEvent event) {
         if (!overlayEnabled.get() || mc.player == null) return;
 
         int yOffset = 10;
         for (Message msg : messageQueue) {
             mc.textRenderer.drawWithShadow(event.matrixStack, msg.text, 10, yOffset, 0xFFFFFF);
-            yOffset += 12; // spacing
+            yOffset += 12;
         }
     }
 
-    /**
-     * Represents a single message
-     */
     private static class Message {
         String text;
         long timestamp;
@@ -122,9 +109,6 @@ public class AnonymousChat extends Module {
         }
     }
 
-    /**
-     * Placeholder networking stubs (for future Fabric network integration)
-     */
     public void receiveNetworkMessage(UUID playerId, String rawMessage, boolean isPrivate) {
         String anonName = anonymousNames.computeIfAbsent(playerId, id -> "Player" + (anonCounter++));
         String displayMessage = (timestampsEnabled.get() ? "[" + LocalTime.now().format(TIME_FORMATTER) + "] " : "")
