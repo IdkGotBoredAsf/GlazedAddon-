@@ -3,13 +3,15 @@ package com.nnpg.glazed.modules.main;
 import com.nnpg.glazed.GlazedAddon;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.settings.*;
+import meteordevelopment.orbit.EventHandler;
+import meteordevelopment.meteorclient.events.world.TickEvent;
 import net.minecraft.client.MinecraftClient;
 
 import java.util.Random;
 
 /**
  * RandomCoords - Hides your real coordinates client-side.
- * Generates fully random coordinates every tick and provides getters for other modules/HUDs.
+ * Generates fully random coordinates every tick for display purposes.
  */
 public class RandomCoords extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -40,14 +42,8 @@ public class RandomCoords extends Module {
         super(GlazedAddon.CATEGORY, "random-coords", "Hides your real coordinates client-side.");
     }
 
-    @Override
-    public void onActivate() {
-        generateRandomCoords();
-        tickCounter = 0;
-    }
-
-    @Override
-    public void onTick(meteordevelopment.meteorclient.events.world.TickEvent.Post event) {
+    @EventHandler
+    private void onTick(TickEvent.Post event) {
         if (mc.player == null) return;
 
         tickCounter++;
@@ -63,11 +59,12 @@ public class RandomCoords extends Module {
         fakeZ = random.nextDouble() * 2 * WORLD_LIMIT - WORLD_LIMIT;
     }
 
-    /** 
-     * Use these getters in your HUDs, chat, or other modules to display fake coordinates.
-     * This avoids directly changing player position and keeps it fully client-side.
+    /**
+     * Getters for fake coordinates.
+     * Use these in HUDs, chat, or other modules for client-side coordinate hiding.
      */
     public double getFakeX() { return fakeX; }
     public double getFakeY() { return fakeY; }
     public double getFakeZ() { return fakeZ; }
 }
+
