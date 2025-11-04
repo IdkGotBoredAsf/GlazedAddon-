@@ -12,10 +12,6 @@ import java.lang.reflect.Field;
 
 /**
  * TwerkAura - toggles sneak repeatedly while a player is nearby.
- * Tries several approaches to activate crouch so it works across mappings/versions:
- *  - mc.player.setSneaking(...)
- *  - mc.options.sneakKey.setPressed(...)
- *  - reflection into mc.player.input.sneaking if present
  */
 public class TwerkAura extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -39,26 +35,23 @@ public class TwerkAura extends Module {
     );
 
     private int tickCounter = 0;
-    private boolean sneakingState = false; // current desired state for toggling
-
+    private boolean sneakingState = false;
     private final MinecraftClient mc = MinecraftClient.getInstance();
 
     public TwerkAura() {
         super(GlazedAddon.troll, "TwerkAura", "Makes your player sneak repeatedly near others.");
     }
 
-    // Use onTick without @Override to avoid mapping mismatch problems.
     public void onTick() {
         if (mc.player == null || mc.world == null) return;
 
-        // increment ticks; only run detection every (sneakDelay) ticks
         tickCounter++;
         if (tickCounter < sneakDelay.get()) return;
         tickCounter = 0;
 
-        // detect players within range
         Box detectionBox = mc.player.getBoundingBox().expand(range.get(), range.get(), range.get());
         boolean near = false;
+
         for (PlayerEntity pe : mc.world.getPlayers()) {
             if (pe == mc.player) continue;
             if (pe.getBoundingBox().intersects(detectionBox)) {
@@ -68,11 +61,9 @@ public class TwerkAura extends Module {
         }
 
         if (near) {
-            // toggle sneak state
             sneakingState = !sneakingState;
             applySneak(sneakingState);
         } else {
-            // ensure we are not sneaking when nobody's near
             sneakingState = false;
             applySneak(false);
         }
@@ -83,42 +74,34 @@ public class TwerkAura extends Module {
         applySneak(false);
     }
 
-    /**
-     * Try multiple ways to apply sneak:
-     * 1) mc.player.setSneaking(...) (safe at compile time)
-     * 2) press/unpress mc.options.sneakKey (causes client to send input packets)
-     * 3) reflection to set mc.player.input.sneaking boolean (if available)
-     */
     private void applySneak(boolean sneak) {
         try {
             if (mc.player != null) {
-                // 1) Set entity sneaking state
+                // 1) Base API
                 try {
                     mc.player.setSneaking(sneak);
                 } catch (Throwable ignored) {}
 
-                // 2) Try to set the sneak key binding (many versions: mc.options.sneakKey)
+                // 2) KeyBinding press
                 try {
-                    // Some mappings expose mc.options and a KeyBinding field named sneakKey.
                     if (mc.options != null) {
                         KeyBinding kb = mc.options.sneakKey;
                         if (kb != null) {
-                            // setPressed exists on many mappings; fall back silently otherwise
                             try {
                                 kb.setPressed(sneak);
-                            } catch (NoSuchMethodError | NoSuchMethodException | Throwable ex) {
-                                // some versions use setDown(...) or different names - try setDown via reflection
+                            } catch (Throwable ex1) {
+                                // maybe setDown(boolean)
                                 try {
                                     Field down = kb.getClass().getDeclaredField("down");
                                     down.setAccessible(true);
                                     down.setBoolean(kb, sneak);
-                                } catch (Throwable ignored) {}
+                                } catch (Throwable ignored2) {}
                             }
                         }
                     }
-                } catch (Throwable ignored) {}
+                } catch (Throwable ignored3) {}
 
-                // 3) Reflection fallback to player.input.sneaking (no compile-time dependency)
+                // 3) Reflection fallback into input.sneaking
                 try {
                     Field inputField = mc.player.getClass().getDeclaredField("input");
                     inputField.setAccessible(true);
@@ -129,20 +112,15 @@ public class TwerkAura extends Module {
                             sneakingField.setAccessible(true);
                             sneakingField.setBoolean(inputObj, sneak);
                         } catch (NoSuchFieldException nsf) {
-                            // sometimes field name differs, try "sneak" as fallback
                             try {
                                 Field f2 = inputObj.getClass().getDeclaredField("sneak");
                                 f2.setAccessible(true);
                                 f2.setBoolean(inputObj, sneak);
-                            } catch (Throwable ignored) {}
+                            } catch (Throwable ignored4) {}
                         }
                     }
-                } catch (NoSuchFieldException nf) {
-                    // input field doesn't exist; ignore
-                } catch (Throwable ignored) {}
+                } catch (Throwable ignored5) {}
             }
-        } catch (Throwable t) {
-            // never crash the client because of this
-        }
+        } catch (Throwable ignoredFinal) {}
     }
 }
