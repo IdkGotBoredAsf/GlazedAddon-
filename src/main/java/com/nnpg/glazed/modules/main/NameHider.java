@@ -5,15 +5,15 @@ import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.events.game.ReceiveMessageEvent;
 import meteordevelopment.orbit.EventHandler;
-import meteordevelopment.meteorclient.utils.player.ChatUtils;
-import meteordevelopment.meteorclient.events.world.TickEvent;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.Text;
+import net.minecraft.network.MessageType;
+
+import java.util.Random;
 
 /**
- * NameHider - Replaces your real name with a custom alias client-side.
- * Works in chat and nametags (client side only).
+ * NameHider - Hides your real name in chat.
+ * Optional fake name or scrambled name.
  */
 public class NameHider extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -32,46 +32,53 @@ public class NameHider extends Module {
         .build()
     );
 
-    private final Setting<Boolean> hideNametag = sgGeneral.add(new BoolSetting.Builder()
-        .name("hide-nametag")
-        .description("Replaces your in-world nametag with your fake name.")
-        .defaultValue(true)
+    private final Setting<Boolean> scrambleName = sgGeneral.add(new BoolSetting.Builder()
+        .name("scramble-name")
+        .description("Scrambles your name to be unreadable instead of using the fake name.")
+        .defaultValue(false)
         .build()
     );
 
     private final MinecraftClient mc = MinecraftClient.getInstance();
+    private final Random random = new Random();
 
     public NameHider() {
-        // ✅ Use your Glazed category
-        super(GlazedAddon.CATEGORY, "name-hider", "Replaces your name with a custom alias client-side.");
+        super(GlazedAddon.CATEGORY, "name-hider", "Hides your real name in chat.");
     }
 
-    // Replace player name in chat
     @EventHandler
     private void onChat(ReceiveMessageEvent event) {
         if (mc.player == null || !hideOwnName.get()) return;
 
         String realName = mc.player.getName().getString();
-        String alias = fakeName.get();
-        String message = event.getMessage().getString();
+        String replacement;
 
+        if (scrambleName.get()) {
+            replacement = generateScrambledName(realName.length());
+        } else {
+            replacement = fakeName.get();
+        }
+
+        String message = event.getMessage().getString();
         if (message.contains(realName)) {
-            // ChatUtils expects a Text object
-            ChatUtils.sendMsg(Text.literal(message.replace(realName, alias)));
-            event.cancel();
+            // Replace all occurrences of real name with replacement
+            String newMessage = message.replace(realName, replacement);
+
+            // Prevent "Meteor" from appearing in death messages
+            if (newMessage.contains("Meteor")) {
+                newMessage = newMessage.replace("Meteor", replacement);
+            }
+
+            event.setMessage(Text.literal(newMessage), MessageType.SYSTEM);
         }
     }
 
-    // Replace nametag every tick
-    @EventHandler
-    private void onTick(TickEvent.Post event) {
-        if (mc.player == null || !hideNametag.get()) return;
-
-        for (PlayerEntity player : mc.world.getPlayers()) {
-            if (player == mc.player) {
-                player.setCustomName(Text.literal(fakeName.get()));
-                player.setCustomNameVisible(true);
-            }
+    private String generateScrambledName(int length) {
+        StringBuilder sb = new StringBuilder();
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        for (int i = 0; i < length; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
         }
+        return sb.toString();
     }
 }
