@@ -47,6 +47,7 @@ public class GlazedAddon extends MeteorAddon {
         Modules.get().add(new HoleTunnelStairsESP());
         Modules.get().add(new CoveredHole());
         Modules.get().add(new VineESP());
+        Modules.get().add(new ColumnESP());
         Modules.get().add(new ChunkFinder());
         Modules.get().add(new LegitAnchorMacro());
         Modules.get().add(new RegionMap());
