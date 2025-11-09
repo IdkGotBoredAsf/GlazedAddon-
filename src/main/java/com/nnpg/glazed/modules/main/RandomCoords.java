@@ -40,7 +40,7 @@ public class RandomCoords extends Module {
     private static final int Y_LIMIT = 320;
 
     public RandomCoords() {
-        // ⬇️ Change CATEGORY to match whatever your GlazedAddon defines
+        // ✅ Make sure GlazedAddon.CATEGORY exists in your main class
         super(GlazedAddon.CATEGORY, "random-coords", "Displays random fake coordinates instead of real ones.");
     }
 
@@ -66,7 +66,8 @@ public class RandomCoords extends Module {
         if (!showOnHud.get() || mc.player == null) return;
 
         String coords = String.format("Fake Coords: X: %.0f Y: %.0f Z: %.0f", fakeX, fakeY, fakeZ);
-        event.renderer.text(coords, 5, 5, 0xFF55FFFF, true);
+        // ✅ Fixed for Meteor Client 1.12+
+        event.getRenderer().text(coords, 5, 5, 0xFF55FFFF, true);
     }
 
     public String getFakeCoordsString() {
