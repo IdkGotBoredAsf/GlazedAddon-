@@ -10,10 +10,6 @@ import net.minecraft.client.MinecraftClient;
 
 import java.util.Random;
 
-/**
- * RandomCoords - Displays random fake coordinates in the HUD.
- * Useful for streaming or hiding your real position.
- */
 public class RandomCoords extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
@@ -44,7 +40,8 @@ public class RandomCoords extends Module {
     private static final int Y_LIMIT = 320;
 
     public RandomCoords() {
-        super(GlazedAddon.MAIN, "random-coords", "Displays random fake coordinates instead of real ones.");
+        // ⬇️ Change CATEGORY to match whatever your GlazedAddon defines
+        super(GlazedAddon.CATEGORY, "random-coords", "Displays random fake coordinates instead of real ones.");
     }
 
     @EventHandler
@@ -69,7 +66,7 @@ public class RandomCoords extends Module {
         if (!showOnHud.get() || mc.player == null) return;
 
         String coords = String.format("Fake Coords: X: %.0f Y: %.0f Z: %.0f", fakeX, fakeY, fakeZ);
-        event.getRenderer().text(coords, 5, 5, 0xFF55FFFF, true);
+        event.renderer.text(coords, 5, 5, 0xFF55FFFF, true);
     }
 
     public String getFakeCoordsString() {
