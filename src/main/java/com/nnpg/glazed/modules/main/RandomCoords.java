@@ -1,45 +1,50 @@
 package com.nnpg.glazed.modules.main;
 
 import com.nnpg.glazed.GlazedAddon;
-import meteordevelopment.meteorclient.systems.modules.Module;
-import meteordevelopment.meteorclient.settings.*;
-import meteordevelopment.orbit.EventHandler;
+import meteordevelopment.meteorclient.events.render.RenderHudEvent;
 import meteordevelopment.meteorclient.events.world.TickEvent;
+import meteordevelopment.meteorclient.settings.*;
+import meteordevelopment.meteorclient.systems.modules.Module;
+import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.MinecraftClient;
 
 import java.util.Random;
 
 /**
- * RandomCoords - Hides your real coordinates client-side.
- * Generates fully random coordinates every tick for display purposes.
+ * RandomCoords - Displays random fake coordinates in the HUD.
+ * Useful for streaming or hiding your real position.
  */
 public class RandomCoords extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
-    private final Setting<Double> updateInterval = sgGeneral.add(new DoubleSetting.Builder()
-            .name("update-interval-ticks")
-            .description("How often to generate new random coordinates.")
-            .defaultValue(1)
-            .min(1)
-            .max(20)
-            .sliderMin(1)
-            .sliderMax(20)
-            .build()
+    private final Setting<Integer> updateInterval = sgGeneral.add(new IntSetting.Builder()
+        .name("update-interval-ticks")
+        .description("How often to generate new random coordinates.")
+        .defaultValue(20)
+        .min(1)
+        .max(200)
+        .sliderMin(1)
+        .sliderMax(200)
+        .build()
+    );
+
+    private final Setting<Boolean> showOnHud = sgGeneral.add(new BoolSetting.Builder()
+        .name("show-on-hud")
+        .description("Displays the fake coordinates on screen.")
+        .defaultValue(true)
+        .build()
     );
 
     private final MinecraftClient mc = MinecraftClient.getInstance();
     private final Random random = new Random();
     private int tickCounter = 0;
 
-    private double fakeX = 0;
-    private double fakeY = 0;
-    private double fakeZ = 0;
-
-    private final int WORLD_LIMIT = 30000000;
-    private final int Y_LIMIT = 320;
+    private double fakeX, fakeY, fakeZ;
+    private static final int WORLD_LIMIT = 30000000;
+    private static final int Y_LIMIT = 320;
 
     public RandomCoords() {
-        super(GlazedAddon.CATEGORY, "random-coords", "Hides your real coordinates client-side.");
+        super(GlazedAddon.main, "random-coords", "Displays random fake coordinates instead of real ones.");
     }
 
     @EventHandler
@@ -59,17 +64,16 @@ public class RandomCoords extends Module {
         fakeZ = random.nextDouble() * 2 * WORLD_LIMIT - WORLD_LIMIT;
     }
 
-    /**
-     * Getters for fake coordinates.
-     * Use these in HUDs, chat, or other modules for client-side coordinate hiding.
-     */
-    public double getFakeX() { return fakeX; }
-    public double getFakeY() { return fakeY; }
-    public double getFakeZ() { return fakeZ; }
+    @EventHandler
+    private void onRenderHud(RenderHudEvent event) {
+        if (!showOnHud.get() || mc.player == null) return;
 
-    /**
-     * Utility to get a formatted string for display.
-     */
+        String coords = String.format("Fake Coords: X: %.0f Y: %.0f Z: %.0f", fakeX, fakeY, fakeZ);
+        event.matrices.push();
+        event.textRenderer.drawWithShadow(event.matrices, coords, 5, 5, 0xFF55FFFF);
+        event.matrices.pop();
+    }
+
     public String getFakeCoordsString() {
         return String.format("X: %.0f Y: %.0f Z: %.0f", fakeX, fakeY, fakeZ);
     }
