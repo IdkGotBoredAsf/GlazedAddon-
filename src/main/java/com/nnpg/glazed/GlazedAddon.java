@@ -41,7 +41,7 @@ public class GlazedAddon extends MeteorAddon {
         Modules.get().add(new RotatedDeepslateESP());
         Modules.get().add(new VillagerESP());
         Modules.get().add(new TpaMacro());
-        Modules.get().add(new NoDeepslateRotation());
+        Modules.get().add(new NoRotate());
         Modules.get().add(new TwerkAura());
         Modules.get().add(new PillagerESP());
         Modules.get().add(new HoleTunnelStairsESP());
