@@ -65,8 +65,7 @@ public class RandomCoords extends Module {
         if (!showOnHud.get() || mc.player == null) return;
 
         String coords = String.format("Fake Coords: X: %.0f Y: %.0f Z: %.0f", fakeX, fakeY, fakeZ);
-        // ✅ Updated to work with current Meteor Client API
-        event.textRenderer.draw(coords, 5, 5, 0xFF55FFFF);
+        event.drawText(coords, 5, 5, 0xFF55FFFF);
     }
 
     public String getFakeCoordsString() {
