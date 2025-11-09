@@ -44,7 +44,7 @@ public class RandomCoords extends Module {
     private static final int Y_LIMIT = 320;
 
     public RandomCoords() {
-        super(GlazedAddon.main, "random-coords", "Displays random fake coordinates instead of real ones.");
+        super(GlazedAddon.MAIN, "random-coords", "Displays random fake coordinates instead of real ones.");
     }
 
     @EventHandler
@@ -69,7 +69,7 @@ public class RandomCoords extends Module {
         if (!showOnHud.get() || mc.player == null) return;
 
         String coords = String.format("Fake Coords: X: %.0f Y: %.0f Z: %.0f", fakeX, fakeY, fakeZ);
-        event.renderer.text(coords, 5, 5, 0xFF55FFFF, true);
+        event.getRenderer().text(coords, 5, 5, 0xFF55FFFF, true);
     }
 
     public String getFakeCoordsString() {
