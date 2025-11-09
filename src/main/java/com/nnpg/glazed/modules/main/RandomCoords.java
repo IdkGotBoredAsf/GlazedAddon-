@@ -1,7 +1,7 @@
 package com.nnpg.glazed.modules.main;
 
 import com.nnpg.glazed.GlazedAddon;
-import meteordevelopment.meteorclient.events.render.RenderHudEvent;
+import meteordevelopment.meteorclient.events.render.Render2DEvent;
 import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
@@ -65,13 +65,11 @@ public class RandomCoords extends Module {
     }
 
     @EventHandler
-    private void onRenderHud(RenderHudEvent event) {
+    private void onRender2D(Render2DEvent event) {
         if (!showOnHud.get() || mc.player == null) return;
 
         String coords = String.format("Fake Coords: X: %.0f Y: %.0f Z: %.0f", fakeX, fakeY, fakeZ);
-        event.matrices.push();
-        event.textRenderer.drawWithShadow(event.matrices, coords, 5, 5, 0xFF55FFFF);
-        event.matrices.pop();
+        event.renderer.text(coords, 5, 5, 0xFF55FFFF, true);
     }
 
     public String getFakeCoordsString() {
