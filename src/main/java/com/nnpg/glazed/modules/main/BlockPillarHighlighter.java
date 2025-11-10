@@ -3,7 +3,7 @@ package com.nnpg.glazed.modules.main;
 import meteordevelopment.meteorclient.events.render.Render3DEvent;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
-import meteordevelopment.meteorclient.systems.modules.Category;
+import meteordevelopment.meteorclient.systems.modules.Categories;
 import meteordevelopment.meteorclient.utils.render.RenderUtils;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
@@ -12,6 +12,8 @@ import net.minecraft.block.Blocks;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -28,10 +30,10 @@ public class BlockPillarHighlighter extends Module {
         .build()
     );
 
-    private final Setting<Set<Block>> surroundBlocks = sgGeneral.add(new BlockListSetting.Builder()
+    private final Setting<List<Block>> surroundBlocks = sgGeneral.add(new BlockListSetting.Builder()
         .name("surround-blocks")
         .description("Blocks that should surround the pillar.")
-        .defaultValue(Set.of(Blocks.ANDESITE, Blocks.GRANITE, Blocks.DIORITE))
+        .defaultValue(Arrays.asList(Blocks.ANDESITE, Blocks.GRANITE, Blocks.DIORITE))
         .build()
     );
 
@@ -50,16 +52,14 @@ public class BlockPillarHighlighter extends Module {
     );
 
     public BlockPillarHighlighter() {
-        super(Category.World, "block-pillar-highlighter", "Highlights stone pillars surrounded by selected blocks.");
+        super(Categories.World, "block-pillar-highlighter", "Highlights stone pillars surrounded by selected blocks.");
     }
 
     @EventHandler
     private void onRender3D(Render3DEvent event) {
-        if (mc.world == null) return;
+        if (mc.world == null || mc.player == null) return;
 
         Set<BlockPos> rendered = new HashSet<>();
-
-        // Scan around the player in the specified range
         BlockPos playerPos = mc.player.getBlockPos();
         int r = range.get();
 
@@ -69,14 +69,14 @@ public class BlockPillarHighlighter extends Module {
                     BlockPos pos = playerPos.add(x, y, z);
                     Block block = mc.world.getBlockState(pos).getBlock();
 
-                    // Only detect stone blocks
                     if (block == Blocks.STONE) {
                         boolean surrounded = true;
 
                         for (BlockPos offset : new BlockPos[]{
                             pos.north(), pos.south(), pos.east(), pos.west()
                         }) {
-                            if (!surroundBlocks.get().contains(mc.world.getBlockState(offset).getBlock())) {
+                            Block surround = mc.world.getBlockState(offset).getBlock();
+                            if (!surroundBlocks.get().contains(surround)) {
                                 surrounded = false;
                                 break;
                             }
@@ -84,8 +84,7 @@ public class BlockPillarHighlighter extends Module {
 
                         if (surrounded && !rendered.contains(pos)) {
                             Box box = new Box(pos);
-                            RenderUtils.drawBoxOutline(box, lineColor.get(), 2f);
-                            RenderUtils.drawBoxFill(box, sideColor.get());
+                            RenderUtils.box(event, box, sideColor.get(), lineColor.get(), true);
                             rendered.add(pos);
                         }
                     }
