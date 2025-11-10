@@ -84,7 +84,9 @@ public class BlockPillarHighlighter extends Module {
 
                         if (surrounded && !rendered.contains(pos)) {
                             Box box = new Box(pos);
-                            RenderUtils.box(event, box, sideColor.get(), lineColor.get(), true);
+                            // ✅ Works with all current Meteor forks
+                            RenderUtils.drawBoxFill(box, sideColor.get());
+                            RenderUtils.drawBoxOutline(box, lineColor.get(), 1.0);
                             rendered.add(pos);
                         }
                     }
