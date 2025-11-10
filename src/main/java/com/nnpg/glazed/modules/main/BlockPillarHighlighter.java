@@ -1,10 +1,12 @@
 package com.nnpg.glazed.modules.main;
 
 import com.nnpg.glazed.GlazedAddon;
-import meteordevelopment.meteorclient.events.world.RenderEvent;
+import meteordevelopment.meteorclient.events.render.Render3DEvent;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
-import meteordevelopment.meteorclient.utils.render.ShapeMode;
+import meteordevelopment.meteorclient.utils.render.RenderUtils;
+import meteordevelopment.meteorclient.utils.render.color.SettingColor;
+import meteordevelopment.meteorclient.utils.render.shape.ShapeMode;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
@@ -13,7 +15,6 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.world.World;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class BlockPillarHighlighter extends Module {
@@ -21,21 +22,21 @@ public class BlockPillarHighlighter extends Module {
 
     private final Setting<List<Block>> targetBlocks = sgGeneral.add(new ListSetting.Builder<Block>()
         .name("pillar-blocks")
-        .description("Blocks to detect as pillars.")
+        .description("Blocks to detect as vertical pillars.")
         .defaultValue(List.of(Blocks.STONE))
         .build()
     );
 
     private final Setting<List<Block>> surroundingBlocks = sgGeneral.add(new ListSetting.Builder<Block>()
         .name("surrounding-blocks")
-        .description("Blocks that should surround the pillar core (e.g. andesite, granite, gravel).")
+        .description("Blocks that should surround each pillar block.")
         .defaultValue(List.of(Blocks.ANDESITE, Blocks.GRANITE, Blocks.GRAVEL))
         .build()
     );
 
     private final Setting<Integer> pillarHeight = sgGeneral.add(new IntSetting.Builder()
         .name("pillar-height")
-        .description("Minimum height of a pillar to highlight.")
+        .description("Minimum pillar height to detect.")
         .defaultValue(3)
         .min(1)
         .max(20)
@@ -45,7 +46,7 @@ public class BlockPillarHighlighter extends Module {
 
     private final Setting<Double> range = sgGeneral.add(new DoubleSetting.Builder()
         .name("scan-range")
-        .description("How far to scan around the player.")
+        .description("How far around the player to scan.")
         .defaultValue(30.0)
         .min(5.0)
         .max(100.0)
@@ -55,19 +56,27 @@ public class BlockPillarHighlighter extends Module {
 
     private final Setting<SettingColor> color = sgGeneral.add(new ColorSetting.Builder()
         .name("highlight-color")
-        .description("Color of the highlight boxes.")
+        .description("Color used for rendering pillar boxes.")
         .defaultValue(new SettingColor(255, 100, 50, 150))
+        .build()
+    );
+
+    private final Setting<ShapeMode> shape = sgGeneral.add(new EnumSetting.Builder<ShapeMode>()
+        .name("shape-mode")
+        .description("Whether to show outlines or full boxes.")
+        .defaultValue(ShapeMode.Lines)
         .build()
     );
 
     private final MinecraftClient mc = MinecraftClient.getInstance();
 
     public BlockPillarHighlighter() {
-        super(GlazedAddon.CATEGORY, "block-pillar-highlighter", "Highlights vertical pillars made of chosen blocks surrounded by chosen materials.");
+        super(GlazedAddon.CATEGORY, "block-pillar-highlighter",
+            "Highlights vertical pillars made of selected blocks surrounded by specific materials.");
     }
 
     @EventHandler
-    private void onRender(RenderEvent event) {
+    private void onRender(Render3DEvent event) {
         if (mc.world == null || mc.player == null) return;
 
         World world = mc.world;
@@ -80,7 +89,7 @@ public class BlockPillarHighlighter extends Module {
                     BlockPos pos = playerPos.add(x, y, z);
                     if (isPillar(world, pos)) {
                         Box box = new Box(pos);
-                        event.renderer.box(box, color.get(), color.get(), ShapeMode.Lines, 0);
+                        RenderUtils.renderBox(event, box, color.get(), shape.get(), 0);
                     }
                 }
             }
@@ -100,23 +109,22 @@ public class BlockPillarHighlighter extends Module {
 
         if (height < pillarHeight.get()) return false;
 
-        // Check surroundings of each pillar block
         for (int i = 0; i < height; i++) {
             BlockPos p = startPos.up(i);
-            if (!isSurroundedByAllowed(world, p)) return false;
+            if (!isSurrounded(world, p)) return false;
         }
 
         return true;
     }
 
-    private boolean isSurroundedByAllowed(World world, BlockPos pos) {
-        List<BlockPos> neighbors = List.of(
+    private boolean isSurrounded(World world, BlockPos pos) {
+        BlockPos[] neighbors = new BlockPos[]{
             pos.north(), pos.south(), pos.east(), pos.west()
-        );
+        };
 
-        for (BlockPos neighbor : neighbors) {
-            Block block = world.getBlockState(neighbor).getBlock();
-            if (!surroundingBlocks.get().contains(block)) return false;
+        for (BlockPos n : neighbors) {
+            Block b = world.getBlockState(n).getBlock();
+            if (!surroundingBlocks.get().contains(b)) return false;
         }
 
         return true;
